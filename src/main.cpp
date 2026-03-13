@@ -589,30 +589,7 @@ SemaphoreHandle_t i2cMutex;
 
 
 // Example: a function to clear skill states
-void deactivateSkill() {
-    skillActive    = false;
-    currentSkill   = 0;
-    skillSteer     = 0;
-    monitorDirection = false; // or holdLine/holdPosition, as needed
-}
-
-void checkWebSocketConnection() {
-    ws.cleanupClients();
-}
-
-void checkPeerTimeout() {
-    unsigned long currentMillis = millis();
-    for (int i = 0; i < numberOfPeers; i++) {
-        // Wenn verbunden, aber seit peerTimeout (15s) nichts mehr gehört -> offline setzen
-        if (peers[i].isConnected && (currentMillis - peers[i].lastSeen > peerTimeout)) {
-            peers[i].isConnected = false;
-            if (ENABLE_DEBUG_SERIAL) {
-                debugPrintf("Peer %d marked OFFLINE (Timeout)\n", deviceList[i].id);
-            }
-        }
-    }
-}
-
+// *** TASK 3.1: Funktion checkWebSocketConnection() entfernt, direkt ws.cleanupClients() verwenden ***
 void readWiFiCredentialsFromEEPROM() {
     for (int i = 0; i < 32; i++) {
         stored_ssid[i] = char(EEPROM.read(SSID_ADDR + i));
@@ -690,14 +667,6 @@ void managePeers() {
     xSemaphoreGive(espNowMutex);
 }
 
-
-void printOwnMacAddress() {
-    String mac = WiFi.macAddress();
-    if (ENABLE_DEBUG_SERIAL) {
-      debugPrint("ESP32 MAC Address: ");
-      debugPrintln(mac);
-    }
-}
 
 /**
  * @brief Saves the current settings structure AND a CRC32 checksum to EEPROM.
@@ -1034,32 +1003,37 @@ void Send(int16_t uSteer, int16_t uSpeed) {
         uSteer = 0; uSpeed = 0;
     }
 
-    Command.start     = 0xABCD;
-    Command.cmdCode   = (int16_t)global_cmdCode; 
-    
-    // *** REFACTORED: Send() verwendet stumpf die übergebenen Parameter ***
-    // Die Entscheidung was übergeben wird, liegt beim Aufrufer (controlLogicTask)
-    Command.steer = uSteer;
-    Command.speed = uSpeed;
+    // *** TASK 1.1: Mutex-Schutz für UART-Kommunikation ***
+    if (xSemaphoreTake(bufferMutex, (TickType_t)10) == pdTRUE) {
+        Command.start     = 0xABCD;
+        Command.cmdCode   = (int16_t)global_cmdCode; 
+        
+        // *** REFACTORED: Send() verwendet stumpf die übergebenen Parameter ***
+        // Die Entscheidung was übergeben wird, liegt beim Aufrufer (controlLogicTask)
+        Command.steer = uSteer;
+        Command.speed = uSpeed;
 
-    // Zuweisung aller Parameter für die binäre Übertragung
-    Command.maxSpeedL = global_maxSpeedL;
-    Command.maxSpeedR = global_maxSpeedR; // Sicherstellen, dass R auch gesendet wird
-    Command.accPct    = (int16_t)global_accel; 
-    Command.brkPct    = (int16_t)global_brake;
+        // Zuweisung aller Parameter für die binäre Übertragung
+        Command.maxSpeedL = global_maxSpeedL;
+        Command.maxSpeedR = global_maxSpeedR; // Sicherstellen, dass R auch gesendet wird
+        Command.accPct    = (int16_t)global_accel; 
+        Command.brkPct    = (int16_t)global_brake;
 
-    // Checksumme muss exakt alle Felder der SerialCommand Struktur im STM32 spiegeln
-    Command.checksum = Command.start ^ 
-                       Command.cmdCode ^ 
-                       Command.steer ^ 
-                       Command.speed ^ 
-                       Command.maxSpeedL ^ 
-                       Command.maxSpeedR ^ 
-                       Command.accPct ^ 
-                       Command.brkPct;
+        // Checksumme muss exakt alle Felder der SerialCommand Struktur im STM32 spiegeln
+        Command.checksum = Command.start ^ 
+                           Command.cmdCode ^ 
+                           Command.steer ^ 
+                           Command.speed ^ 
+                           Command.maxSpeedL ^ 
+                           Command.maxSpeedR ^ 
+                           Command.accPct ^ 
+                           Command.brkPct;
 
-    // Binäres Paket an den STM32 feuern
-    HoverSerial.write((uint8_t *)&Command, sizeof(SerialCommand));
+        // Binäres Paket an den STM32 feuern
+        HoverSerial.write((uint8_t *)&Command, sizeof(SerialCommand));
+        
+        xSemaphoreGive(bufferMutex);
+    }
 }
 
 
@@ -2151,8 +2125,8 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
         memcpy(message, data, len);
         message[len] = '\0';
         
-        static DynamicJsonDocument doc(512); 
-        doc.clear(); 
+        // *** TASK 1.2: static entfernt (Memory Corruption Fix) ***
+        DynamicJsonDocument doc(512); 
         DeserializationError error = deserializeJson(doc, message);
         
         if (error) {
@@ -2325,10 +2299,14 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
                     }
                     // -------------------------------------------------------
 
-                    input_EspNowSteer = doc["steer"].as<int16_t>();
-                    input_EspNowSpeed = doc["speed"].as<int16_t>();
-                    input_JoySteer = input_EspNowSteer; // NEU
-                    input_JoySpeed = input_EspNowSpeed; // NEU
+                    // *** TASK 2.1: Limitierung (Constrain) für Web-Joystick ***
+                    int16_t rawSteer = doc["steer"].as<int16_t>();
+                    int16_t rawSpeed = doc["speed"].as<int16_t>();
+                    
+                    input_EspNowSteer = constrain(rawSteer, -currentSettings.currentMaxSteer, currentSettings.currentMaxSteer);
+                    input_EspNowSpeed = constrain(rawSpeed, -currentSettings.currentMaxSpeed, currentSettings.currentMaxSpeed);
+                    input_JoySteer = input_EspNowSteer;
+                    input_JoySpeed = input_EspNowSpeed;
                     lastJoystickCommandTime = millis();
                     if (ENABLE_DEBUG_SERIAL) {
                         debugPrintf("Joystick: Steer %d, Speed %d\n", input_EspNowSteer, input_EspNowSpeed);
@@ -2371,8 +2349,9 @@ void connectToWiFi(const char* ssid, const char* password) {
         }
         logToWebpage("Connecting to " + String(ssid));
 
-        IPAddress sta_local_IP(192, 168, 1, 123);
-        IPAddress sta_gateway(192, 168, 1, 1);
+        // *** TASK 2.2: Subnetz auf 178.x geändert (FritzBox-Netzwerk) ***
+        IPAddress sta_local_IP(192, 168, 178, 123);
+        IPAddress sta_gateway(192, 168, 178, 1);
         IPAddress sta_subnet(255, 255, 255, 0);
         WiFi.config(sta_local_IP, sta_gateway, sta_subnet); // Das setzt die Haus-IP fest
 
@@ -2431,8 +2410,8 @@ void resetDevice(AsyncWebServerRequest *request) {
     }
     logToWebpage("Resetting device...");
     request->send(200, "text/plain", "Device is restarting.");
-    delay(200); // Small delay to ensure the HTTP response is sent
-    ESP.restart();
+    // *** TASK 1.3: Blockierenden Code durch Flag ersetzt ***
+    shouldRestart = true;
 }
 
 // Add this new function to handle the WiFi reset request
