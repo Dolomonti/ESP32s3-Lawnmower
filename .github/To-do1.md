@@ -207,6 +207,7 @@ Dies ist das technische Backlog zur Härtung der `main.cpp` und zur Beseitigung 
 | Implementierung | Datum | Tester | Status |
 |-----------------|-------|--------|--------|
 | Doppelten pinMode() entfernt | 2026-03-13 | - | ✅ Erledigt |
+| **ACHTUNG:** EMERGENCY_STOP_PIN war auch gelöscht! | 2026-03-13 | - | ✅ Wieder hinzugefügt |
 
 
 
