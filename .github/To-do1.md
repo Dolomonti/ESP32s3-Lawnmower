@@ -189,9 +189,9 @@ Dies ist das technische Backlog zur Härtung der `main.cpp` und zur Beseitigung 
 
 | Implementierung | Datum | Tester | Status |
 |-----------------|-------|--------|--------|
-| ACK für Skill-Befehle | - | - | ⬜ Offen |
-| ACK für Code 999 | - | - | ⬜ Offen |
-| Test im Web-UI Log | - | - | ⬜ Offen |
+| ACK für Skill-Befehle | - | - | ✅ Bereits implementiert |
+| ACK für Code 999 | - | - | ✅ Bereits implementiert |
+| Test im Web-UI Log | - | Boss | ⬜ Offen |
 
 
 
