@@ -230,11 +230,11 @@ Dies ist das technische Backlog zur Härtung der `main.cpp` und zur Beseitigung 
 
 | Implementierung | Datum | Tester | Status |
 |-----------------|-------|--------|--------|
-| handleDriveSkills() erstellt | - | - | ⬜ Offen |
-| handleBladeSkills() erstellt | - | - | ⬜ Offen |
-| handleSetupSkills() erstellt | - | - | ⬜ Offen |
-| triggerSkill() refactored | - | - | ⬜ Offen |
-| Build-Test erfolgreich | - | - | ⬜ Offen |
+| handleDriveSkills() erstellt | 2026-03-13 | - | ✅ Erledigt |
+| handleBladeSkills() erstellt | 2026-03-13 | - | ✅ Erledigt |
+| handleSetupSkills() erstellt | 2026-03-13 | - | ✅ Erledigt |
+| triggerSkill() refactored | 2026-03-13 | - | ✅ Erledigt |
+| Build-Test erfolgreich | 2026-03-13 | - | ✅ Erledigt |
 
 
 
