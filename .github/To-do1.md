@@ -81,8 +81,8 @@ Dies ist das technische Backlog zur Härtung der `main.cpp` und zur Beseitigung 
 
 | Implementierung | Datum | Tester | Status |
 |-----------------|-------|--------|--------|
-| sizeof(SerialFeedback)==18 Check in setup() | - | - | ⬜ Offen |
-| Guard: if(idx==sizeof(SerialFeedback)) in Receive() | - | - | ⬜ Offen |
+| sizeof(SerialFeedback)==18 Check in setup() | 2026-03-13 | - | ✅ Erledigt |
+| Guard: if(idx==sizeof(SerialFeedback)) in Receive() | - | - | ✅ Bereits vorhanden |
 
 
 
@@ -94,8 +94,8 @@ Dies ist das technische Backlog zur Härtung der `main.cpp` und zur Beseitigung 
 
 | Implementierung | Datum | Tester | Status |
 |-----------------|-------|--------|--------|
-| E-Stop Check in controlLogicTask Skill 20 Block | - | - | ⬜ Offen |
-| Test: E-Stop während Mission | - | - | ⬜ Offen |
+| E-Stop Check in controlLogicTask Skill 20 Block | 2026-03-13 | - | ✅ Erledigt |
+| Test: E-Stop während Mission | - | Boss | ⬜ Offen |
 
 
 
@@ -113,10 +113,10 @@ Dies ist das technische Backlog zur Härtung der `main.cpp` und zur Beseitigung 
 
 | Implementierung | Datum | Tester | Status |
 |-----------------|-------|--------|--------|
-| Forward-Declaration entfernt | - | - | ⬜ Offen |
-| if(global_cmdCode==2) aus Send() entfernt | - | - | ⬜ Offen |
-| controlLogicTask angepasst | - | - | ⬜ Offen |
-| Build-Test erfolgreich | - | - | ⬜ Offen |
+| Forward-Declaration entfernt | 2026-03-13 | - | ✅ Erledigt |
+| if(global_cmdCode==2) aus Send() entfernt | 2026-03-13 | - | ✅ Erledigt |
+| controlLogicTask angepasst | 2026-03-13 | - | ✅ Erledigt (war bereits korrekt) |
+| Build-Test erfolgreich | 2026-03-13 | - | ✅ Erledigt |
 
 
 
@@ -130,10 +130,10 @@ Dies ist das technische Backlog zur Härtung der `main.cpp` und zur Beseitigung 
 
 | Implementierung | Datum | Tester | Status |
 |-----------------|-------|--------|--------|
-| Naming-Convention definiert | - | - | ⬜ Offen |
-| Variablen umbenannt | - | - | ⬜ Offen |
-| Alle Referenzen aktualisiert | - | - | ⬜ Offen |
-| Build-Test erfolgreich | - | - | ⬜ Offen |
+| Naming-Convention definiert | 2026-03-13 | - | ✅ Erledigt |
+| Variablen umbenannt | 2026-03-13 | - | ✅ Erledigt (lastEspNow* → input_EspNow*) |
+| Alle Referenzen aktualisiert | 2026-03-13 | - | ✅ Erledigt |
+| Build-Test erfolgreich | 2026-03-13 | - | ✅ Erledigt |
 
 
 
@@ -146,9 +146,9 @@ Dies ist das technische Backlog zur Härtung der `main.cpp` und zur Beseitigung 
 
 | Implementierung | Datum | Tester | Status |
 |-----------------|-------|--------|--------|
-| Explizite Casts in statusTask | - | - | ⬜ Offen |
-| Integer-Vergleiche in handleSystemStatus | - | - | ⬜ Offen |
-| Test mit Spannungsgrenzwerten | - | - | ⬜ Offen |
+| Explizite Casts in statusTask | 2026-03-13 | - | ✅ Erledigt |
+| Integer-Vergleiche in handleSystemStatus | 2026-03-13 | - | ✅ Bereits korrekt |
+| Test mit Spannungsgrenzwerten | - | Boss | ⬜ Offen |
 
 
 
@@ -176,8 +176,8 @@ Dies ist das technische Backlog zur Härtung der `main.cpp` und zur Beseitigung 
 
 | Implementierung | Datum | Tester | Status |
 |-----------------|-------|--------|--------|
-| memset() vor Default-Zuweisung | - | - | ⬜ Offen |
-| Test mit gelöschtem EEPROM | - | - | ⬜ Offen |
+| memset() vor Default-Zuweisung | 2026-03-13 | - | ✅ Erledigt |
+| Test mit gelöschtem EEPROM | - | Boss | ⬜ Offen |
 
 
 
@@ -206,7 +206,7 @@ Dies ist das technische Backlog zur Härtung der `main.cpp` und zur Beseitigung 
 
 | Implementierung | Datum | Tester | Status |
 |-----------------|-------|--------|--------|
-| Doppelten pinMode() entfernt | - | - | ⬜ Offen |
+| Doppelten pinMode() entfernt | 2026-03-13 | - | ✅ Erledigt |
 
 
 
@@ -217,9 +217,9 @@ Dies ist das technische Backlog zur Härtung der `main.cpp` und zur Beseitigung 
 
 | Implementierung | Datum | Tester | Status |
 |-----------------|-------|--------|--------|
-| debugPrint(float) overload | - | - | ⬜ Offen |
-| debugPrintln(float) overload | - | - | ⬜ Offen |
-| Test mit Float-Ausgaben | - | - | ⬜ Offen |
+| debugPrint(float) overload | 2026-03-13 | - | ✅ Erledigt |
+| debugPrintln(float) overload | 2026-03-13 | - | ✅ Erledigt |
+| Test mit Float-Ausgaben | - | Boss | ⬜ Offen |
 
 
 
