@@ -2349,9 +2349,9 @@ void connectToWiFi(const char* ssid, const char* password) {
         }
         logToWebpage("Connecting to " + String(ssid));
 
-        // *** TASK 2.2: Subnetz auf 178.x geändert (FritzBox-Netzwerk) ***
-        IPAddress sta_local_IP(192, 168, 178, 123);
-        IPAddress sta_gateway(192, 168, 178, 1);
+        // Wieder zurück auf das 1er Subnetz!
+        IPAddress sta_local_IP(192, 168, 1, 123);
+        IPAddress sta_gateway(192, 168, 1, 1);
         IPAddress sta_subnet(255, 255, 255, 0);
         WiFi.config(sta_local_IP, sta_gateway, sta_subnet); // Das setzt die Haus-IP fest
 

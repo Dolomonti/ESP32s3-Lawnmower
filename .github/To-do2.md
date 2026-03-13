@@ -90,7 +90,7 @@ Hier ist die Master-To-Do-Liste. Sie dient als exakter, technischer Fahrplan (Ex
 
 | Implementierung | Datum | Tester | Status |
 |-----------------|-------|--------|--------|
-| Subnetz auf 178.x ändern | 2026-03-13 | - | ✅ Erledigt |
+| Subnetz auf 178.x ändern | 2026-03-13 | - | ❌ Zurückgerollt (auf 1.x belassen) |
 
 ---
 
