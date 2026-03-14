@@ -16,7 +16,7 @@
 | Kategorie | Anzahl | Status |
 |-----------|--------|--------|
 | ~~Kritische Fehler~~ | ~~1~~ | ✅ **ERLEDIGT** |
-| ~~Hohe Schwere~~ | ~~5~~ | ✅ **4/5 ERLEDIGT** |
+| ~~Hohe Schwere~~ | ~~5~~ | ✅ **ALLE ERLEDIGT** |
 | Mittlere Schwere | 5 | ⏳ Offen |
 | Niedrige Schwere | 5 | ⏳ Offen |
 | ~~Toter Code~~ | ~~15+ Elemente~~ | ✅ **ERLEDIGT** |
@@ -93,17 +93,19 @@ if (len >= MAX_WS_MSG_SIZE) {
 - Problem: VLA auf Stack kann bei großen Nachrichten zum Overflow führen
 - Lösung: Fixed-size Buffer (512 bytes) mit Truncation-Warnung
 
-### 2.4 Ungeprüfte EEPROM-Operationen ⏳ OFFEN
+### ~~2.4 Ungeprüfte EEPROM-Operationen~~ ✅ BEREITS OK
 
 **Datei:** `src/main.cpp:680-700`
-- Problem: `EEPROM.put()` ohne Fehlerbehandlung
-- Hinweis: `saveSettings()` hat bereits `EEPROM.commit()` mit Prüfung
+- ~~Problem: `EEPROM.put()` ohne Fehlerbehandlung~~
+- **Prüfung:** `saveSettings()` ruft bereits `EEPROM.commit()` mit Fehlerbehandlung auf (Zeile 691-699)
+- **Keine Änderung nötig** - Code ist bereits korrekt
 
-### 2.5 Unbounded String Operations ⏳ OFFEN
+### ~~2.5 Unbounded String Operations~~ ✅ BEREITS OK
 
-**Datei:** `src/main.cpp:1221-1232`
-- Problem: `substring()` ohne Index-Validierung
-- Lösung: Bounds-Checking vor String-Operationen
+**Datei:** `src/main.cpp:1228-1304`
+- ~~Problem: `substring()` ohne Index-Validierung~~
+- **Prüfung:** Alle `substring()` Aufrufe sind durch `if (commaIndex != -1)` geschützt
+- **Keine Änderung nötig** - Code ist bereits sicher
 
 ---
 
