@@ -1148,10 +1148,7 @@ void onDataReceive(const uint8_t *mac_addr, const uint8_t *incomingData, int len
             break;
 
         default: // Alle Skills (1-17, etc.)
-            if (ENABLE_DEBUG_SERIAL) {
-                // Debug Ausgabe
-                debugPrintf("Skill CMD %d Recv -> Steer(Param1): %d, Speed(Param2): %d\n", cmd.commandCode, cmd.steer, cmd.speed);
-            }
+            DEBUG_PRINTF("Skill CMD %d Recv -> Steer(Param1): %d, Speed(Param2): %d\n", cmd.commandCode, cmd.steer, cmd.speed);
             triggerSkill(cmd.commandCode, cmd.steer, cmd.speed);
             break;
     }
@@ -1224,9 +1221,7 @@ void handleSerialInput() {
 
         // --- A: RESET BEFEHL ---
         if (inputString.equalsIgnoreCase("reset")) {
-            if (ENABLE_DEBUG_SERIAL) {
-                debugPrintln("Serial Reset Command Received. Restarting ESP32...");
-            }
+            DEBUG_LOG("Serial Reset Command Received. Restarting ESP32...");
             ESP.restart();
         }
         
@@ -1314,9 +1309,7 @@ void handleSerialInput() {
                     } else if (speed < -currentSettings.currentMaxSpeed || speed > currentSettings.currentMaxSpeed) {
                         debugPrintf("Error: Speed value out of range (-%d to %d).\n", currentSettings.currentMaxSpeed, currentSettings.currentMaxSpeed);
                     } else {
-                        if (ENABLE_DEBUG_SERIAL) {
-                            debugPrintf("Sending Command - Steer: %d, Speed: %d\n", steer, speed);
-                        }
+                        DEBUG_PRINTF("Sending Command - Steer: %d, Speed: %d\n", steer, speed);
                         Send(steer, speed);
                     }
                 } else {
@@ -1326,29 +1319,25 @@ void handleSerialInput() {
         }
 
         // --- C: EINZEL-BEFEHLE (Skills ohne Komma) ---
-        else if (inputString == "1")  { triggerSkill(1); } 
-        else if (inputString == "2-") { triggerSkill(2, -1000); } 
-        else if (inputString == "2+") { triggerSkill(2, 1000); } 
-        else if (inputString == "3")  { triggerSkill(3); } 
-        else if (inputString == "4-") { triggerSkill(4, -1000); } 
+        else if (inputString == "1")  { triggerSkill(1); }
+        else if (inputString == "2-") { triggerSkill(2, -1000); }
+        else if (inputString == "2+") { triggerSkill(2, 1000); }
+        else if (inputString == "3")  { triggerSkill(3); }
+        else if (inputString == "4-") { triggerSkill(4, -1000); }
         else if (inputString == "4+") { triggerSkill(4, 1000); }
-        else if (inputString == "6")  { triggerSkill(6, 1); } 
+        else if (inputString == "6")  { triggerSkill(6, 1); }
         else if (inputString == "7")  {
-            if (ENABLE_DEBUG_SERIAL) {
-                debugPrintf("Skill 7 Info: Current Max Speed: %d, Max Steer: %d\n", currentSettings.currentMaxSpeed, currentSettings.currentMaxSteer);
-            }
-        } 
-        else if (inputString == "8")  { triggerSkill(8, 1); } 
+            DEBUG_PRINTF("Skill 7 Info: Current Max Speed: %d, Max Steer: %d\n", currentSettings.currentMaxSpeed, currentSettings.currentMaxSteer);
+        }
+        else if (inputString == "8")  { triggerSkill(8, 1); }
         else if (inputString == "9")  {
-            if (ENABLE_DEBUG_SERIAL) {
-                debugPrintln("Skill 9 triggered via Serial. Restarting ESP32...");
-            }
+            DEBUG_LOG("Skill 9 triggered via Serial. Restarting ESP32...");
             ESP.restart();
-        } 
-        
+        }
+
         // --- D: FEHLERHAFTE EINGABE ---
         else {
-            if (inputString.length() > 0) { 
+            if (inputString.length() > 0) {
                 debugPrintln("Error: Invalid command format.");
                 debugPrintln("Use 'reset', '1'-'9', '16, value', or 'steer,speed'.");
             }
