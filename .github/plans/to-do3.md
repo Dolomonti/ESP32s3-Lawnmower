@@ -3,6 +3,7 @@
 ## Commits dieser Session:
 | Hash | Beschreibung |
 |------|--------------|
+| `36d412e` | docs: Update to-do3.md with Phase 3.7 progress |
 | `78f6618` | Phase 3.7: Final debug pattern cleanup |
 | `0aafad1` | Phase 3.6: Convert MPU init debug patterns to macros |
 | `07e479a` | Phase 3.5: Convert WiFi setup debug patterns to macros |
