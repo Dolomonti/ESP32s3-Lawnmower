@@ -9,10 +9,10 @@
 | Kategorie | Anzahl | Status |
 |-----------|--------|--------|
 | ~~Kritische Fehler~~ | ~~1~~ | ✅ **ERLEDIGT** |
-| Hohe Schwere | 5 | ✅ 3/5 erledigt |
+| ~~Hohe Schwere~~ | ~~5~~ | ✅ **4/5 ERLEDIGT** |
 | Mittlere Schwere | 5 | ⏳ Offen |
 | Niedrige Schwere | 5 | ⏳ Offen |
-| Toter Code | 15+ Elemente | ✅ 6/8 erledigt |
+| ~~Toter Code~~ | ~~15+ Elemente~~ | ✅ **ERLEDIGT** |
 | Redundanz | 15+ Muster | ⏳ Phase 3-4 |
 
 ---
@@ -55,12 +55,13 @@ if (lastPdTime == 0 || rectangleTimeDelta < 1) {  // Thread-sicher!
   - `writeWiFiCredentialsToEEPROM()`: Längenvalidierung + Warnung bei Truncation
 - Verhindert Buffer-Overflow bei langen SSIDs/Passwörtern
 
-### 2.2 Race Condition (ESP-NOW) ⏳ OFFEN
+### ~~2.2 Race Condition (ESP-NOW)~~ ✅ DOKUMENTIERT
 
-**Datei:** `src/main.cpp:1072-1143`
+**Datei:** `src/main.cpp:1129-1136`
 - Problem: `input_EspNowSteer`, `input_EspNowSpeed` ohne Mutex-Schutz
-- Lösung: Critical Sections oder Mutex
-- **Hinweis:** `volatile` garantiert nur Sichtbarkeit, nicht Atomarität
+- **Entscheidung:** Auf ESP32 sind aligned 16-bit Lese/Schreib-Operationen hardware-atomar
+- **Fix:** Kommentar hinzugefügt, der Design-Entscheidung dokumentiert
+- **Risiko:** Niedrig - Worst Case ist 1 veralteter Wert pro 30ms Zyklus
 
 ### ~~2.3 Stack Overflow Risiko (WebSocket)~~ ✅
 
@@ -125,11 +126,11 @@ if (len >= MAX_WS_MSG_SIZE) {
 - `handleSystemStatus()`: `battery_temp`, `blade_battery`, `blade_temp`
 - **Hinweis:** Parameter werden immer mit 0 übergeben - können entfernt werden
 
-### 3.4 Dokumentations-Dateien ohne Code ⏳ OFFEN
+### ~~3.4 Dokumentations-Dateien ohne Code~~ ✅ ERLEDIGT
 
 | Datei | Zeilen | Status |
 |-------|--------|--------|
-| `src/ManualLawnmover.cpp` | 365 | ⏳ Zu `.md` konvertieren |
+| ~~`src/ManualLawnmover.cpp`~~ | ~~365~~ | ✅ Konvertiert zu `docs/TECHNICAL_MANUAL.md` |
 | ~~`src/ManualRemote.cpp`~~ | ~~189~~ | ✅ Gelöscht (Code in `RemoteCodeforInformation.cpp`) |
 
 ### 3.5 Inkomplette Implementierung
