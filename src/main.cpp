@@ -1410,26 +1410,20 @@ void setupWiFiAP() {
 
     // 2. Statische IP-Konfiguration für schnelleren Verbindungsaufbau (DHCP-Fix)
     if (!WiFi.softAPConfig(local_IP, gateway, subnet)) {
-        if (ENABLE_DEBUG_SERIAL) debugPrintln("[WiFiAP] AP Config Failed");
+        DEBUG_LOG("[WiFiAP] AP Config Failed");
     }
 
     // 3. Start des Access Points auf Kanal 6 (Wichtig für ESP-NOW Kompatibilität)
     // Start the Access Point
-    if (WiFi.softAP(ssid, password, 6, 0, 4)) { 
+    if (WiFi.softAP(ssid, password, 6, 0, 4)) {
         // Starte den DNS Server und leite alle (*) Anfragen auf unsere eigene IP um
         dnsServer.start(DNS_PORT, "*", local_IP);
-        
-        if (ENABLE_DEBUG_SERIAL) {
-            debugPrintln("[WiFiAP] Access Point started successfully");
-            debugPrint("[WiFiAP] SSID: ");
-            debugPrintln(ssid);
-            debugPrint("[WiFiAP] Password: ");
-            debugPrintln(password);
-            debugPrint("[WiFiAP] AP IP Address: ");
-            debugPrintln(WiFi.softAPIP());
-        }
+
+        DEBUG_LOG("[WiFiAP] Access Point started successfully");
+        DEBUG_PRINTF("[WiFiAP] SSID: %s | Password: %s\n", ssid, password);
+        DEBUG_PRINTF("[WiFiAP] AP IP Address: %s\n", WiFi.softAPIP().toString().c_str());
     } else {
-        if (ENABLE_DEBUG_SERIAL) debugPrintln("[WiFiAP] Failed to start Access Point!");
+        DEBUG_LOG("[WiFiAP] Failed to start Access Point!");
     }
 }
 
@@ -1565,27 +1559,21 @@ void setup() {
     // 2. Heimnetzwerk verbinden (Wieder aktiviert!)
     // Wir nutzen connectToWiFi, da diese Funktion wartet, bis die Verbindung steht.
     if (strlen(stored_ssid) > 0 && isprint(stored_ssid[0])) { // Prüfung auf > 0 (nicht 1)
-        if (ENABLE_DEBUG_SERIAL) {
-            debugPrint("[Setup] Gespeicherte SSID gefunden: ");
-            debugPrintln(stored_ssid);
-            debugPrintln("[Setup] Starte Verbindung zum Heimnetz...");
-        }
+        DEBUG_PRINTF("[Setup] Gespeicherte SSID gefunden: %s\n", stored_ssid);
+        DEBUG_LOG("[Setup] Starte Verbindung zum Heimnetz...");
         connectToWiFi(stored_ssid, stored_password);
     } else {
-        if (ENABLE_DEBUG_SERIAL) debugPrintln("[Setup] Keine WiFi-Daten im Speicher gefunden.");
+        DEBUG_LOG("[Setup] Keine WiFi-Daten im Speicher gefunden.");
     }
 
-    
+
 
     // Print WiFi channel information
-    if (ENABLE_DEBUG_SERIAL) {
-      debugPrint("Current WiFi Channel: ");
-      debugPrintln(WiFi.channel());
-      debugPrint("WiFi Mode: ");
-      debugPrintln(WiFi.getMode() == WIFI_MODE_AP ? "AP" :
-                         WiFi.getMode() == WIFI_MODE_STA ? "STA" :
-                         WiFi.getMode() == WIFI_MODE_APSTA ? "AP+STA" : "Unknown");
-    }
+    DEBUG_PRINTF("Current WiFi Channel: %d | Mode: %s\n",
+        WiFi.channel(),
+        WiFi.getMode() == WIFI_MODE_AP ? "AP" :
+        WiFi.getMode() == WIFI_MODE_STA ? "STA" :
+        WiFi.getMode() == WIFI_MODE_APSTA ? "AP+STA" : "Unknown");
 
     delay(100);
 
