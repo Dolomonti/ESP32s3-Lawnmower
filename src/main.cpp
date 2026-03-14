@@ -145,6 +145,26 @@ const int BLADE_ZERO_US = 1500; // je nach ESC Voreinstellung
 
 #define SAFETY_TRIGGER_DELAY 5000    // Verzögerung für Sicherheitsabschaltungen Volt un Temperatur in ms (5 Sek)
 
+// ====================================================================================
+// ===== PHASE 3 REFACTORING: Constants & Macros ======================================
+// ====================================================================================
+
+// --- Angle Constants ---
+constexpr float ANGLE_NORMALIZE_MIN = -180.0f;
+constexpr float ANGLE_NORMALIZE_MAX = 180.0f;
+constexpr float CAPSIZE_THRESHOLD_PITCH = 60.0f;  // Capsize detection angle
+constexpr float CAPSIZE_THRESHOLD_ROLL = 60.0f;
+
+// --- PD-Controller Constants ---
+constexpr float PD_ERROR_THRESHOLD = 2.0f;  // Target reached threshold in degrees
+
+// --- Debug Logging Macro (Phase 3.2) ---
+// Usage: DEBUG_LOG("Message"); or DEBUG_PRINTF("Value: %d\n", val);
+#define DEBUG_LOG(msg) do { if (ENABLE_DEBUG_SERIAL) debugPrintln(msg); } while(0)
+#define DEBUG_PRINTF(fmt, ...) do { if (ENABLE_DEBUG_SERIAL) debugPrintf(fmt, ##__VA_ARGS__); } while(0)
+
+// ====================================================================================
+
 // 1. ESP-NOW Command Struktur
 typedef struct __attribute__((packed)) {
     uint16_t start;       // Start frame
@@ -474,7 +494,7 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
 void resetDevice(AsyncWebServerRequest *request);
 void handleResetWifi(AsyncWebServerRequest *request);
 extern const char webpage[] PROGMEM; // Correct declaration for an array in program memory
-void handleSystemStatus(int16_t battery, int16_t temp, int16_t battery_temp, int16_t blade_battery, int16_t blade_temp, int16_t blade_battery_temp);
+void handleSystemStatus(int16_t battery, int16_t temp);
 void handleWebpage(AsyncWebServerRequest *request);
 void connectToWiFi(const char* ssid, const char* password);
 void logToWebpage(const String& message);
@@ -615,15 +635,11 @@ void writeWiFiCredentialsToEEPROM(const char *ssid, const char *password) {
 
     // Übertragen Sie die Änderungen in den permanenten Speicher und überprüfen Sie den Erfolg.
     if (EEPROM.commit()) {
-        if (ENABLE_DEBUG_SERIAL) {
-          debugPrintln("WiFi credentials successfully saved to EEPROM.");
-          logToWebpage("WiFi credentials saved."); // Informiert auch die Webseite
-        }
+        DEBUG_LOG("WiFi credentials successfully saved to EEPROM.");
+        logToWebpage("WiFi credentials saved."); // Informiert auch die Webseite
     } else {
-        if (ENABLE_DEBUG_SERIAL) {
-          debugPrintln("ERROR: Failed to save WiFi credentials to EEPROM.");
-          logToWebpage("Error: Failed to save WiFi credentials."); // Informiert die Webseite über den Fehler
-        }
+        DEBUG_LOG("ERROR: Failed to save WiFi credentials to EEPROM.");
+        logToWebpage("Error: Failed to save WiFi credentials."); // Informiert die Webseite über den Fehler
     }
 }
 
@@ -689,13 +705,9 @@ void saveSettings() {
 
     // 4. Änderungen bestätigen
     if (EEPROM.commit()) {
-        if (ENABLE_DEBUG_SERIAL) {
-            debugPrintln("Settings and CRC successfully saved to EEPROM.");
-        }
+        DEBUG_LOG("Settings and CRC successfully saved to EEPROM.");
     } else {
-        if (ENABLE_DEBUG_SERIAL) {
-            debugPrintln("Error saving settings to EEPROM.");
-        }
+        DEBUG_LOG("Error saving settings to EEPROM.");
     }
 }
 /**
@@ -715,10 +727,8 @@ void loadSettings() {
 
     // 4. Vergleiche den gespeicherten CRC mit dem neu berechneten CRC.
     if (calculated_crc != saved_crc || currentSettings.magic != 0xDEADBEEF) {
-        
-        if (ENABLE_DEBUG_SERIAL) {
-            debugPrintln("EEPROM data invalid or CRC mismatch! Loading defaults.");
-        }
+
+        DEBUG_LOG("EEPROM data invalid or CRC mismatch! Loading defaults.");
 
         // *** SICHERHEIT: Struct zurücksetzen vor Default-Zuweisung ***
         memset(&currentSettings, 0, sizeof(Settings));
@@ -2520,30 +2530,17 @@ void loop(void)
     }
 
     // 2. Daten vom Hoverboard empfangen
-    Receive(); 
+    Receive();
 
     // 3. Sicherheits-Checks & Status-Berechnung
-    // Diese Werte bleiben lokal, um handleSystemStatus zu füttern
-    int16_t current_battery_temp = 0;
-    int16_t current_blade_battery = 0;
-    int16_t current_blade_temp = 0;
-    int16_t current_blade_battery_temp = 0;
-
     // Batteriespannung korrigieren (expliziter Cast für Typensicherheit)
     corrected_batVoltage = (int16_t)(Feedback.batVoltage * currentSettings.driveBatteryFactor);
 
     // Board-Temperatur mit Offset berechnen
     float rectangleCorrectedBoardTemp = Feedback.boardTemp + 37.6f;
 
-    // Systemstatus prüfen (Spannung/Temp Limits)
-    handleSystemStatus(
-        corrected_batVoltage,
-        rectangleCorrectedBoardTemp, 
-        current_battery_temp, 
-        current_blade_battery, 
-        current_blade_temp, 
-        current_blade_battery_temp
-    );
+    // Systemstatus prüfen (Spannung/Temp Limits) - Phase 3: Removed unused params
+    handleSystemStatus(corrected_batVoltage, rectangleCorrectedBoardTemp);
 
     // 4. ESP-NOW & Peer Management
     managePeers();
@@ -2626,8 +2623,8 @@ void mpuReadTask(void *parameter) {
 
 
 // ========================================================
-void handleSystemStatus(int16_t battery, int16_t temp, int16_t battery_temp, int16_t blade_battery, int16_t blade_temp, int16_t blade_battery_temp) {
-    
+void handleSystemStatus(int16_t battery, int16_t temp) {
+
     static unsigned long driveHighVoltTime = 0;
     static unsigned long driveLowVoltTime = 0;
     static unsigned long driveTempErrorTime = 0;
@@ -2710,9 +2707,7 @@ void resetHorizon() {
     // ====================================================================================
     // ===== CHANGE END: End of timer reset =============================================
     // ====================================================================================
-    if (ENABLE_DEBUG_SERIAL) {
-      debugPrintln("Horizon reset: All angles set to 0°.");
-    }
+    DEBUG_LOG("Horizon reset: All angles set to 0°.");
 }
 
 void resetAll() {
@@ -2736,11 +2731,69 @@ void resetAll() {
     currentBladeState = BLADE_WORK;
     current_blade_pwm = BLADE_ZERO_US;
 
-    if (ENABLE_DEBUG_SERIAL) {
-      debugPrintln("System reset: All states cleared.");
-    }
+    DEBUG_LOG("System reset: All states cleared.");
 }
 
+// ====================================================================================
+// ===== PHASE 3 REFACTORING: Helper Functions ========================================
+// ====================================================================================
+
+/**
+ * @brief Normalizes an angle to the range [-180, 180] degrees.
+ * @param angle The input angle in degrees
+ * @return The normalized angle in range [-180, 180]
+ */
+inline float normalizeAngle(float angle) {
+    while (angle > 180.0f) angle -= 360.0f;
+    while (angle < -180.0f) angle += 360.0f;
+    return angle;
+}
+
+/**
+ * @brief Calculates the shortest angular difference between two angles.
+ * @param from Start angle in degrees
+ * @param to Target angle in degrees
+ * @return The signed difference in range [-180, 180]
+ */
+inline float angleDifference(float from, float to) {
+    float diff = to - from;
+    return normalizeAngle(diff);
+}
+
+/**
+ * @brief PD-Controller calculation for steering correction.
+ * Extracted from monitorDirectionChange and holdTheLine (Phase 3.1).
+ *
+ * @param error The current error value (deviation from target)
+ * @param Kp Proportional gain
+ * @param Kd Derivative gain
+ * @param maxSteer Maximum steering output limit
+ * @return The calculated steering value, constrained to [-maxSteer, maxSteer]
+ */
+int16_t calculatePDSteer(float error, float Kp, float Kd, int16_t maxSteer) {
+    unsigned long now = millis();
+    unsigned long timeDelta = now - lastPdTime;
+
+    // Prevent division by zero (thread-safe with < 1)
+    if (lastPdTime == 0 || timeDelta < 1) {
+        timeDelta = 1;
+    }
+
+    // Calculate derivative (rate of error change)
+    float derivative = (error - lastError) / (float)timeDelta;
+
+    // PD output
+    float pdOutput = (Kp * error) + (Kd * derivative);
+
+    // Store state for next iteration
+    lastError = error;
+    lastPdTime = now;
+
+    // Constrain and return
+    return constrain((int16_t)pdOutput, -maxSteer, maxSteer);
+}
+
+// ====================================================================================
 
 // ÄNDERN Sie die Funktion "monitorDirectionChange"
 void monitorDirectionChange(float yaw) {
@@ -2750,70 +2803,31 @@ void monitorDirectionChange(float yaw) {
     if (turnDirection == 1 && rectangleError < -90) rectangleError += 360;
     else if (turnDirection == -1 && rectangleError > 90) rectangleError -= 360;
 
-    // ===== NEUE PD-REGLER-LOGIK START =====
-    unsigned long now = millis();
-    unsigned long rectangleTimeDelta = now - lastPdTime;
-
-    // Verhindere Division durch Null beim ersten Durchlauf (thread-sicher mit < 1)
-    if (lastPdTime == 0 || rectangleTimeDelta < 1) {
-        rectangleTimeDelta = 1; // Setze auf einen kleinen Wert
-    }
-
-    // Derivative berechnen (Änderung des Fehlers über die Zeit)
-    float derivative = (rectangleError - lastError) / (float)rectangleTimeDelta;
-
-    // PD-Output berechnen
-    float pd_output = (currentSettings.Kp * rectangleError) + (currentSettings.Kd * derivative);
-    
-    // Globale Zustandsvariablen für den nächsten Durchlauf speichern
-    lastError = rectangleError;
-    lastPdTime = now;
-    
-    // Lenkwert begrenzen und zuweisen
-    skillSteer = constrain(pd_output, -currentSettings.currentMaxSteer, currentSettings.currentMaxSteer);
-    // ===== NEUE PD-REGLER-LOGIK ENDE =====
+    // PD-Controller (Phase 3.1: Extracted to helper function)
+    skillSteer = calculatePDSteer(rectangleError, currentSettings.Kp, currentSettings.Kd, currentSettings.currentMaxSteer);
 
     if (ENABLE_DEBUG_SERIAL && (millis() - lastSerialUpdate >= 500)) {
         lastSerialUpdate = millis();
-        debugPrintf("Yaw: %.1f, Err: %.1f, Deriv: %.2f, Steer: %d\n", yaw, rectangleError, derivative, skillSteer);
+        DEBUG_PRINTF("Yaw: %.1f, Err: %.1f, Steer: %d\n", yaw, rectangleError, skillSteer);
     }
 
-    if (abs(rectangleError) < 2.0) {
-        if (ENABLE_DEBUG_SERIAL) {
-            debugPrintln("Target angle reached.");
-        }
+    if (abs(rectangleError) < PD_ERROR_THRESHOLD) {
+        DEBUG_LOG("Target angle reached.");
         resetAll();
     }
 }
 
 // ÄNDERN Sie die Funktion "holdTheLine"
 void holdTheLine(float yaw) {
-    float rectangleError = startYaw - yaw; // Fehler ist die Abweichung vom Startwinkel
+    // Fehler ist die Abweichung vom Startwinkel (Phase 3.1: Using helper)
+    float rectangleError = normalizeAngle(startYaw - yaw);
 
-    if (rectangleError > 180) rectangleError -= 360;
-    if (rectangleError < -180) rectangleError += 360;
-    
-    // ===== NEUE PD-REGLER-LOGIK START (identisch zu oben) =====
-    unsigned long now = millis();
-    unsigned long rectangleTimeDelta = now - lastPdTime;
-
-    // Verhindere Division durch Null (thread-sicher mit < 1)
-    if (lastPdTime == 0 || rectangleTimeDelta < 1) {
-        rectangleTimeDelta = 1;
-    }
-
-    float derivative = (rectangleError - lastError) / (float)rectangleTimeDelta;
-    float pd_output = (currentSettings.Kp * rectangleError) + (currentSettings.Kd * derivative);
-
-    lastError = rectangleError;
-    lastPdTime = now;
-    
-    skillSteer = constrain(pd_output, -currentSettings.currentMaxSteer, currentSettings.currentMaxSteer);
-    // ===== NEUE PD-REGLER-LOGIK ENDE =====
+    // PD-Controller (Phase 3.1: Extracted to helper function)
+    skillSteer = calculatePDSteer(rectangleError, currentSettings.Kp, currentSettings.Kd, currentSettings.currentMaxSteer);
 
     if (ENABLE_DEBUG_SERIAL && (millis() - lastSerialUpdate >= 500)) {
         lastSerialUpdate = millis();
-        debugPrintf("HoldLine | Yaw: %.1f, Dev: %.1f, Steer: %d\n", yaw, -rectangleError, skillSteer);
+        DEBUG_PRINTF("HoldLine | Yaw: %.1f, Dev: %.1f, Steer: %d\n", yaw, -rectangleError, skillSteer);
     }
 }
 
@@ -2821,17 +2835,14 @@ void holdTheLine(float yaw) {
 
 void holdPositionMovement(float yaw) {
     static float previousYaw = yaw;
-    float yawChange = yaw - previousYaw;
 
-    if (yawChange > 180) yawChange -= 360;
-    if (yawChange < -180) yawChange += 360;
+    // Phase 3.1: Using normalizeAngle helper
+    float yawChange = normalizeAngle(yaw - previousYaw);
 
     cumulativeYaw += abs(yawChange);
     previousYaw = yaw;
 
-    float rectangleError = yaw - startYaw;
-    if (rectangleError > 180) rectangleError -= 360;
-    if (rectangleError < -180) rectangleError += 360;
+    float rectangleError = normalizeAngle(yaw - startYaw);
 
     // if (ENABLE_DEBUG_SERIAL) {
     //   debugPrint("Deviation: ");
@@ -2839,9 +2850,7 @@ void holdPositionMovement(float yaw) {
     // }
 
     if (abs(ypr[0]) < 0.5) {
-        if (ENABLE_DEBUG_SERIAL) {
-          debugPrintln("Standstill detected!");
-        }
+        DEBUG_LOG("Standstill detected!");
         holdPosition = false;
     }
 }
