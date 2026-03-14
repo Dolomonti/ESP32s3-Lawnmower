@@ -3,7 +3,8 @@
 ## Commits dieser Session:
 | Hash | Beschreibung |
 |------|--------------|
-| `TBD` | Phase 3: Refactoring - Helper functions, Debug macros, Constants |
+| `ac59768` | Phase 3: Refactoring - Helper functions, Debug macros, Constants |
+| `ade35dc` | docs: Update to-do3.md - All High Priority items verified OK |
 | `78718f2` | Phase 1: Fix critical bugs and remove dead code |
 | `61efc62` | docs: Update to-do3.md with completed items |
 | `345a5bd` | chore: Clean up GitHub files |
