@@ -1720,15 +1720,12 @@ void setup() {
               0                     
           );
 
-          if (ENABLE_DEBUG_SERIAL) {
-              debugPrintln("MPU initialized. Waiting for sensor to stabilize before setting initial horizon...");
-          }
+          DEBUG_LOG("MPU initialized. Waiting for sensor to stabilize before setting initial horizon...");
+
           // Give the MPU task time to read stable values.
           vTaskDelay(2000 / portTICK_PERIOD_MS); // Increased delay to 2 seconds
           resetHorizon();
-          if (ENABLE_DEBUG_SERIAL) {
-              debugPrintln("Initial horizon set on startup.");
-          }
+          DEBUG_LOG("Initial horizon set on startup.");
       }
       // ====================================================================================
       // ===== CHANGE END: End of MPU startup logic fixes ===================================

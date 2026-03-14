@@ -3,6 +3,7 @@
 ## Commits dieser Session:
 | Hash | Beschreibung |
 |------|--------------|
+| `0aafad1` | Phase 3.6: Convert MPU init debug patterns to macros |
 | `07e479a` | Phase 3.5: Convert WiFi setup debug patterns to macros |
 | `099798d` | Phase 3.4: Convert Serial and Skill debug patterns to macros |
 | `e699afc` | Phase 3.3: Convert Setup Skills debug patterns to macros |
