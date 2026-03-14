@@ -930,64 +930,64 @@ void handleSetupSkills(uint8_t skill, int16_t param1, int16_t param2, int16_t pa
             if (param3 > 0) currentSettings.currentMaxSpeed = constrain(param3, 0, MAX_SPEED);
             if (param2 > 0) currentSettings.currentMaxSteer = constrain(param2, 0, MAX_STEER);
             saveSettings();
-            if (ENABLE_DEBUG_SERIAL) debugPrintf("Skill 7: Updated currentMaxSpeed to %d and currentMaxSteer to %d\n", currentSettings.currentMaxSpeed, currentSettings.currentMaxSteer);
+            DEBUG_PRINTF("Skill 7: Updated currentMaxSpeed to %d and currentMaxSteer to %d\n", currentSettings.currentMaxSpeed, currentSettings.currentMaxSteer);
             break;
         case 8:
-            if (param1 == 1000) { currentSettings.capsizeAngle = (float)param2; saveSettings(); if (ENABLE_DEBUG_SERIAL) debugPrintf("Skill 8: Capsize Angle set to %.2f degrees.\n", currentSettings.capsizeAngle); return; }
-            if (param1 == 1001) { currentSettings.capsizeTimeout = param2; saveSettings(); if (ENABLE_DEBUG_SERIAL) debugPrintf("Skill 8: Capsize Timeout set to %d ms.\n", currentSettings.capsizeTimeout); return; }
-            
+            if (param1 == 1000) { currentSettings.capsizeAngle = (float)param2; saveSettings(); DEBUG_PRINTF("Skill 8: Capsize Angle set to %.2f degrees.\n", currentSettings.capsizeAngle); return; }
+            if (param1 == 1001) { currentSettings.capsizeTimeout = param2; saveSettings(); DEBUG_PRINTF("Skill 8: Capsize Timeout set to %d ms.\n", currentSettings.capsizeTimeout); return; }
+
             if (param1 == 20) {
                 resetAll(); digitalWrite(BLADE_UNIT_PIN, LOW); digitalWrite(DRIVE_UNIT_PIN, LOW);
                 currentBladeState = BLADE_OFF; bladeEsc.writeMicroseconds(BLADE_ZERO_US); skill8SafetyActive = true;
                 static unsigned long lastEstopPrint = 0; unsigned long now = millis();
-                if (ENABLE_DEBUG_SERIAL && (now - lastEstopPrint > 2000)) { debugPrintln("--> IMMEDIATE EMERGENCY STOP TRIGGERED <--"); lastEstopPrint = now; }
+                if (now - lastEstopPrint > 2000) { DEBUG_LOG("--> IMMEDIATE EMERGENCY STOP TRIGGERED <--"); lastEstopPrint = now; }
             } else if (param1 > 0) {
-                if (!skill8Active) { resetAll(); skill8Active = true; if (ENABLE_DEBUG_SERIAL) debugPrintln("Skill 8: Activated (Capsize MPU monitoring started)."); }
+                if (!skill8Active) { resetAll(); skill8Active = true; DEBUG_LOG("Skill 8: Activated (Capsize MPU monitoring started)."); }
             } else if (param1 == -20) {
-                if (ENABLE_DEBUG_SERIAL) debugPrintln("Stop/Reset command received: Stopping skills, resetting horizon, clearing E-Stop.");
+                DEBUG_LOG("Stop/Reset command received: Stopping skills, resetting horizon, clearing E-Stop.");
                 resetAll(); resetHorizon();
-                if (skill8SafetyActive) { skill8SafetyActive = false; if (ENABLE_DEBUG_SERIAL) debugPrintln("--> Emergency Stop state has been cleared."); }
+                if (skill8SafetyActive) { skill8SafetyActive = false; DEBUG_LOG("--> Emergency Stop state has been cleared."); }
             } else if (param1 < 0) {
-                if (skill8Active) { skill8Active = false; hoverboardInverted = false; skill8SafetyActive = false; if (ENABLE_DEBUG_SERIAL) debugPrintln("Skill 8: Deactivated (Capsize MPU monitoring stopped)."); }
+                if (skill8Active) { skill8Active = false; hoverboardInverted = false; skill8SafetyActive = false; DEBUG_LOG("Skill 8: Deactivated (Capsize MPU monitoring stopped)."); }
             } else {
-                debugPrintln("Skill 8: Undefined command, requires a non-zero value.");
+                DEBUG_LOG("Skill 8: Undefined command, requires a non-zero value.");
             }
             break;
         case 9:
-            if (ENABLE_DEBUG_SERIAL) debugPrintln("Skill 9 triggered via Webpage. Restarting ESP32...");
+            DEBUG_LOG("Skill 9 triggered via Webpage. Restarting ESP32...");
             ESP.restart();
             break;
         case 12:
             currentSettings.driveMinShutdownVoltage = param1; currentSettings.driveSafetyModeVoltage = param2; currentSettings.driveHighVoltage = param3; currentSettings.driveEmergencyLowTemp = param4; currentSettings.driveSafetyModeTemp = param5; currentSettings.driveHighTemp = param6; saveSettings();
-            if (ENABLE_DEBUG_SERIAL) debugPrintf("Skill 12: Drive settings updated - V: %d, %d, %d | Temp: %d, %d, %d\n", currentSettings.driveMinShutdownVoltage, currentSettings.driveSafetyModeVoltage, currentSettings.driveHighVoltage, currentSettings.driveEmergencyLowTemp, currentSettings.driveSafetyModeTemp, currentSettings.driveHighTemp);
+            DEBUG_PRINTF("Skill 12: Drive settings updated - V: %d, %d, %d | Temp: %d, %d, %d\n", currentSettings.driveMinShutdownVoltage, currentSettings.driveSafetyModeVoltage, currentSettings.driveHighVoltage, currentSettings.driveEmergencyLowTemp, currentSettings.driveSafetyModeTemp, currentSettings.driveHighTemp);
             break;
         case 13:
             currentSettings.bladeMinShutdownVoltage = param1; currentSettings.bladeSafetyModeVoltage = param2; currentSettings.bladeHighVoltage = param3; currentSettings.bladeEmergencyLowTemp = param4; currentSettings.bladeSafetyModeTemp = param5; currentSettings.bladeHighTemp = param6; saveSettings();
-            if (ENABLE_DEBUG_SERIAL) debugPrintf("Skill 13: Blade settings updated - V: %d, %d, %d | Temp: %d, %d, %d\n", currentSettings.bladeMinShutdownVoltage, currentSettings.bladeSafetyModeVoltage, currentSettings.bladeHighVoltage, currentSettings.bladeEmergencyLowTemp, currentSettings.bladeSafetyModeTemp, currentSettings.bladeHighTemp);
+            DEBUG_PRINTF("Skill 13: Blade settings updated - V: %d, %d, %d | Temp: %d, %d, %d\n", currentSettings.bladeMinShutdownVoltage, currentSettings.bladeSafetyModeVoltage, currentSettings.bladeHighVoltage, currentSettings.bladeEmergencyLowTemp, currentSettings.bladeSafetyModeTemp, currentSettings.bladeHighTemp);
             break;
         case 14:
             currentSettings.capsizeAngle = (float)param1; currentSettings.capsizeTimeout = param2; saveSettings();
-            if (ENABLE_DEBUG_SERIAL) debugPrintf("Skill 14: Capsize parameters updated - Angle: %.2f, Timeout: %d\n", currentSettings.capsizeAngle, currentSettings.capsizeTimeout);
+            DEBUG_PRINTF("Skill 14: Capsize parameters updated - Angle: %.2f, Timeout: %d\n", currentSettings.capsizeAngle, currentSettings.capsizeTimeout);
             break;
         case 15:
             if (param1 > 0) currentSettings.Kp = (float)param1 / 100.0f;
             if (param2 > 0) currentSettings.Kd = (float)param2 / 100.0f;
             saveSettings();
-            if (ENABLE_DEBUG_SERIAL) debugPrintf("Skill 15: PD-Regler aktualisiert - Kp: %.2f, Kd: %.2f\n", currentSettings.Kp, currentSettings.Kd);
+            DEBUG_PRINTF("Skill 15: PD-Regler aktualisiert - Kp: %.2f, Kd: %.2f\n", currentSettings.Kp, currentSettings.Kd);
             break;
-        case 16: 
-            if (param1 > 0) { currentSettings.bladeBatteryFactor = (float)param1 / 100.0; saveSettings(); if (ENABLE_DEBUG_SERIAL) debugPrintf("Neuer Blade Batterie Faktor: %.2f\n", currentSettings.bladeBatteryFactor); }
+        case 16:
+            if (param1 > 0) { currentSettings.bladeBatteryFactor = (float)param1 / 100.0; saveSettings(); DEBUG_PRINTF("Neuer Blade Batterie Faktor: %.2f\n", currentSettings.bladeBatteryFactor); }
             break;
-        case 17: 
-            if (param1 > 0) { currentSettings.driveBatteryFactor = (float)param1 / 1000.0; saveSettings(); debugPrintf("Neuer Drive Faktor: %.3f\n", currentSettings.driveBatteryFactor); }
+        case 17:
+            if (param1 > 0) { currentSettings.driveBatteryFactor = (float)param1 / 1000.0; saveSettings(); DEBUG_PRINTF("Neuer Drive Faktor: %.3f\n", currentSettings.driveBatteryFactor); }
             break;
-        case 18: 
-            if (param1 > 0) { digitalWrite(DRIVE_UNIT_PIN, HIGH); if (ENABLE_DEBUG_SERIAL) debugPrintln("Skill 18: Drive Unit Power ON (Pin 20 HIGH)"); } 
-            else { digitalWrite(DRIVE_UNIT_PIN, LOW); if (ENABLE_DEBUG_SERIAL) debugPrintln("Skill 18: Drive Unit Power OFF (Pin 20 LOW)"); }
+        case 18:
+            if (param1 > 0) { digitalWrite(DRIVE_UNIT_PIN, HIGH); DEBUG_LOG("Skill 18: Drive Unit Power ON (Pin 20 HIGH)"); }
+            else { digitalWrite(DRIVE_UNIT_PIN, LOW); DEBUG_LOG("Skill 18: Drive Unit Power OFF (Pin 20 LOW)"); }
             break;
         case 19:
             global_cmdCode = (uint16_t)param1; global_accel = (uint16_t)param2; global_brake = (uint16_t)param3;
-            if (ENABLE_DEBUG_SERIAL) debugPrintf("Skill 19: Parameters updated -> Cmd: %d, Accel: %d, Brake: %d\n", global_cmdCode, global_accel, global_brake);
+            DEBUG_PRINTF("Skill 19: Parameters updated -> Cmd: %d, Accel: %d, Brake: %d\n", global_cmdCode, global_accel, global_brake);
             break;
     }
 }
