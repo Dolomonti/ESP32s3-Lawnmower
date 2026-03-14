@@ -1591,39 +1591,34 @@ void setup() {
         );
 
     // Initialize ESP-NOW
-      if (esp_now_init() != ESP_OK) {
-          debugPrintln("Error initializing ESP-NOW");
-          return;
-      }
-      if (ENABLE_DEBUG_SERIAL) {
-        debugPrintln("ESP-NOW Initialized");
-      }
+    if (esp_now_init() != ESP_OK) {
+        debugPrintln("Error initializing ESP-NOW");
+        return;
+    }
+    DEBUG_LOG("ESP-NOW Initialized");
 
-      espNowMutex = xSemaphoreCreateMutex();
-      if (espNowMutex == NULL) {
-          debugPrintln("Failed to create ESP-NOW mutex");
-          // Handle the error as needed
-      }
+    espNowMutex = xSemaphoreCreateMutex();
+    if (espNowMutex == NULL) {
+        debugPrintln("Failed to create ESP-NOW mutex");
+    }
 
 
     // Add peers
-      esp_now_peer_info_t peerInfo = {};
-      for (int i = 0; i < numberOfPeers; i++) {
-          const uint8_t *macAddress = deviceList[i].mac;
+    esp_now_peer_info_t peerInfo = {};
+    for (int i = 0; i < numberOfPeers; i++) {
+        const uint8_t *macAddress = deviceList[i].mac;
 
-          memset(&peerInfo, 0, sizeof(peerInfo));
-          memcpy(peerInfo.peer_addr, macAddress, 6);
-          peerInfo.channel = 6; // 0 means use current channel
-          peerInfo.encrypt = false;
+        memset(&peerInfo, 0, sizeof(peerInfo));
+        memcpy(peerInfo.peer_addr, macAddress, 6);
+        peerInfo.channel = 6; // 0 means use current channel
+        peerInfo.encrypt = false;
 
-          if (esp_now_add_peer(&peerInfo) != ESP_OK) {
-              debugPrintf("Failed to add peer %d\n", i);
-          } else {
-              if (ENABLE_DEBUG_SERIAL) {
-                debugPrintf("Added peer %d successfully\n", i);
-              }
-          }
-      }
+        if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+            debugPrintf("Failed to add peer %d\n", i);
+        } else {
+            DEBUG_PRINTF("Added peer %d successfully\n", i);
+        }
+    }
 
 
   pinMode(BUTTON1_PIN, INPUT_PULLUP);
@@ -1663,65 +1658,55 @@ void setup() {
       int rectangleMpuAttempts = 0;
       bool rectangleMpuInitialized = false; // Flag zur Verfolgung des Erfolgs
 
-      while (rectangleMpuAttempts < MAX_MPU_ATTEMPTS && !rectangleMpuInitialized) {
-          rectangleMpuAttempts++;
-          if (ENABLE_DEBUG_SERIAL) {
-              debugPrintf("Versuche MPU-Initialisierung (Versuch %d/%d)...\n", rectangleMpuAttempts, MAX_MPU_ATTEMPTS);
-          }
+    while (rectangleMpuAttempts < MAX_MPU_ATTEMPTS && !rectangleMpuInitialized) {
+        rectangleMpuAttempts++;
+        DEBUG_PRINTF("Versuche MPU-Initialisierung (Versuch %d/%d)...\n", rectangleMpuAttempts, MAX_MPU_ATTEMPTS);
 
-          mpu.initialize();
+        mpu.initialize();
 
-          if (!mpu.testConnection()) {
-              if (ENABLE_DEBUG_SERIAL) {
-                  debugPrintln(" -> MPU6050-Verbindungstest fehlgeschlagen.");
-              }
-              delay(500); // Warte vor dem nächsten Verbindungsversuch
-              continue;   // Springe zur nächsten Schleifeniteration
-          }
+        if (!mpu.testConnection()) {
+            DEBUG_LOG(" -> MPU6050-Verbindungstest fehlgeschlagen.");
+            delay(500); // Warte vor dem nächsten Verbindungsversuch
+            continue;   // Springe zur nächsten Schleifeniteration
+        }
 
           // Verbindung OK, versuche nun, die DMP zu initialisieren
           devStatus = mpu.dmpInitialize();
           
-          if (devStatus == 0) {
-              // ERFOLG!
-              mpu.setDMPEnabled(true);
-              dmpReady = true;
-              packetSize = mpu.dmpGetFIFOPacketSize();
-              if (ENABLE_DEBUG_SERIAL) {
-                  debugPrintln(" -> MPU6050 DMP erfolgreich initialisiert.");
-              }
-              pinMode(46, INPUT); // GPIO 46 als Eingang für den INT-Pin
-              attachInterrupt(digitalPinToInterrupt(46), dmpDataReady, RISING); // ISR an Pin 46 binden
-              mpu.setIntDataReadyEnabled(true); // Dem MPU sagen, dass er den Interrupt-Pin nutzen soll
-              
-              rectangleMpuInitialized = true; // Setze Flag, um die Schleife zu verlassen
-          } else {
-              // DMP-Init fehlgeschlagen
-              if (ENABLE_DEBUG_SERIAL) {
-                  debugPrintf(" -> MPU6050 DMP-Initialisierung fehlgeschlagen mit Code: %d. Wiederhole...\n", devStatus);
-              }
-              delay(500); // Warte vor dem erneuten Versuch der DMP-Init
-          }
-      } // Ende der while-Schleife
+        if (devStatus == 0) {
+            // ERFOLG!
+            mpu.setDMPEnabled(true);
+            dmpReady = true;
+            packetSize = mpu.dmpGetFIFOPacketSize();
+            DEBUG_LOG(" -> MPU6050 DMP erfolgreich initialisiert.");
+            pinMode(46, INPUT); // GPIO 46 als Eingang für den INT-Pin
+            attachInterrupt(digitalPinToInterrupt(46), dmpDataReady, RISING); // ISR an Pin 46 binden
+            mpu.setIntDataReadyEnabled(true); // Dem MPU sagen, dass er den Interrupt-Pin nutzen soll
 
-      // Prüfe nach der Schleife, ob wir endgültig gescheitert sind
-      if (!rectangleMpuInitialized) {
-          debugPrintln("KRITISCHER FEHLER: MPU6050 konnte nach 2 Versuchen nicht initialisiert werden! MPU-basierte Skills sind deaktiviert.");
-      }
-      // ====================================================================================
-      // ===== CHANGE END: Ende der MPU-Init-Retry-Schleife ================================
-      // ====================================================================================
+            rectangleMpuInitialized = true; // Setze Flag, um die Schleife zu verlassen
+        } else {
+            // DMP-Init fehlgeschlagen
+            DEBUG_PRINTF(" -> MPU6050 DMP-Initialisierung fehlgeschlagen mit Code: %d. Wiederhole...\n", devStatus);
+            delay(500); // Warte vor dem erneuten Versuch der DMP-Init
+        }
+    } // Ende der while-Schleife
 
-      // ====================================================================================
-      // ===== CHANGE START: Initial Horizon Calibration on Startup & Task Creation Order ===
-      // ====================================================================================
-      if (rectangleMpuInitialized) {
-          // Set DMP update rate to 50Hz (1kHz / (1 + 19) = 50Hz)
-          // Halbiert die I2C Last, reicht für Kippschutz völlig aus.
-          mpu.setRate(19);
-          if (ENABLE_DEBUG_SERIAL) {
-              debugPrintln("MPU DMP rate set to 50Hz for I2C relief.");
-          }
+    // Prüfe nach der Schleife, ob wir endgültig gescheitert sind
+    if (!rectangleMpuInitialized) {
+        debugPrintln("KRITISCHER FEHLER: MPU6050 konnte nach 2 Versuchen nicht initialisiert werden! MPU-basierte Skills sind deaktiviert.");
+    }
+    // ====================================================================================
+    // ===== CHANGE END: Ende der MPU-Init-Retry-Schleife ================================
+    // ====================================================================================
+
+    // ====================================================================================
+    // ===== CHANGE START: Initial Horizon Calibration on Startup & Task Creation Order ===
+    // ====================================================================================
+    if (rectangleMpuInitialized) {
+        // Set DMP update rate to 50Hz (1kHz / (1 + 19) = 50Hz)
+        // Halbiert die I2C Last, reicht für Kippschutz völlig aus.
+        mpu.setRate(19);
+        DEBUG_LOG("MPU DMP rate set to 50Hz for I2C relief.");
 
           // Create and start the MPU task IMMEDIATELY after initialization
           // to ensure the FIFO buffer is being cleared.

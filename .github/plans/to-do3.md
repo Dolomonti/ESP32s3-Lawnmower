@@ -3,6 +3,10 @@
 ## Commits dieser Session:
 | Hash | Beschreibung |
 |------|--------------|
+| `07e479a` | Phase 3.5: Convert WiFi setup debug patterns to macros |
+| `099798d` | Phase 3.4: Convert Serial and Skill debug patterns to macros |
+| `e699afc` | Phase 3.3: Convert Setup Skills debug patterns to macros |
+| `ec9e704` | Phase 3.2: Convert more debug patterns to macros |
 | `ac59768` | Phase 3: Refactoring - Helper functions, Debug macros, Constants |
 | `ade35dc` | docs: Update to-do3.md - All High Priority items verified OK |
 | `78718f2` | Phase 1: Fix critical bugs and remove dead code |
