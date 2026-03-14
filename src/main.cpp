@@ -282,7 +282,6 @@ enum BladeHeight {
 };
 BladeHeight currentBladeHeight = BLADE_HEIGHT_UNKNOWN;
 
-bool isBladeBoostMode = false;
 unsigned long bladeSequenceStartTime = 0;
 int current_blade_pwm = BLADE_ZERO_US; 
 
@@ -294,7 +293,6 @@ const unsigned long RESET_HOLD_MS = 1000; // 1 Sekunde Halten
 bool isInSafetyMode = false;
 int16_t originalMaxSpeed = 0; // Stores max speed before entering safety mode
 bool isHighVoltageShutdown = false;
-unsigned long highVoltageStopTime = 0;
 
 // Temperature monitoring thresholds (unchanged)
 #define TEMP_SHUTDOWN_DEGREES        8000  // System shuts down above 80.0 C
@@ -419,19 +417,16 @@ HardwareSerial HoverSerial(1);        // Use UART1 for hoverboard communication
 // Global variables
 uint8_t idx = 0;
 uint16_t bufStartFrame;
-byte *p;
+byte *p;  // Pointer for serial data parsing in Receive()
 byte incomingByte;
 byte incomingBytePrev;
 
 bool button1State = false;
 bool button2State = false;
-bool peerConnected = false;
-bool lastPeerStatus = false;
 
 
 
 unsigned long lastHeartbeat = 0;
-unsigned long lastBatteryPrint = 0;
 
 ///////////////////////MAC ADRESS INSERT HERE//////////////////////////
 
@@ -522,7 +517,7 @@ bool hoverboardInverted = false;      // To detect capsizing
 int currentCase = 0;          // Case trigger variable (1, 2, 3, 4, or 5)
 bool monitorDirection = false;      // Flag for Cases 2 and 4
 bool holdLine = false;              // Flag for Case 3
-bool holdPosition = false;          // Flag for Case 5
+bool holdPosition = false;          // Flag for Case 5 (triggered via Remote)
 float targetAngle = 0;              // Target angle for Cases 2 and 4
 int turnDirection = 0;              // direction achange awareness
 float startYaw = 0;                 // Initial yaw for Cases 3 and 5
@@ -591,21 +586,33 @@ SemaphoreHandle_t i2cMutex;
 // Example: a function to clear skill states
 // *** TASK 3.1: Funktion checkWebSocketConnection() entfernt, direkt ws.cleanupClients() verwenden ***
 void readWiFiCredentialsFromEEPROM() {
-    for (int i = 0; i < 32; i++) {
+    for (int i = 0; i < 31; i++) {  // Only read 31 chars to leave room for null terminator
         stored_ssid[i] = char(EEPROM.read(SSID_ADDR + i));
         stored_password[i] = char(EEPROM.read(PASSWORD_ADDR + i));
     }
+    // Explicitly null-terminate both strings
+    stored_ssid[31] = '\0';
+    stored_password[31] = '\0';
 }
 
 
 void writeWiFiCredentialsToEEPROM(const char *ssid, const char *password) {
     // Schreiben Sie die SSID- und Passwort-Zeichenfolgen in den EEPROM.
-    // Wenn die Zeichenfolge kürzer als 32 Zeichen ist, wird der Rest mit Nullen (0) aufgefüllt.
-    for (int i = 0; i < 32; i++) {
-        EEPROM.write(SSID_ADDR + i, i < strlen(ssid) ? ssid[i] : 0);
-        EEPROM.write(PASSWORD_ADDR + i, i < strlen(password) ? password[i] : 0);
+    // Sicherheitsfix: Länge validieren und null-terminieren
+    size_t ssidLen = strlen(ssid);
+    size_t passwordLen = strlen(password);
+
+    // Warnung wenn zu lang
+    if (ssidLen >= 32 || passwordLen >= 32) {
+        if (ENABLE_DEBUG_SERIAL) debugPrintln("WARNING: WiFi credentials truncated (max 31 chars)");
     }
-    
+
+    // Schreiben mit Null-Terminierung
+    for (int i = 0; i < 32; i++) {
+        EEPROM.write(SSID_ADDR + i, i < ssidLen ? ssid[i] : 0);
+        EEPROM.write(PASSWORD_ADDR + i, i < passwordLen ? password[i] : 0);
+    }
+
     // Übertragen Sie die Änderungen in den permanenten Speicher und überprüfen Sie den Erfolg.
     if (EEPROM.commit()) {
         if (ENABLE_DEBUG_SERIAL) {
@@ -620,11 +627,10 @@ void writeWiFiCredentialsToEEPROM(const char *ssid, const char *password) {
     }
 }
 
-// CORRECTED FUNCTION SIGNATURE for ESP-IDF version in Arduino Core 2.0.x
+// ESP-NOW Send Callback (required but unused - no action needed)
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
-    // This function is the callback for ESP-NOW send operations.
-    // debugPrint("Packet sent. Status: ");
-    // debugPrintln(status == ESP_NOW_SEND_SUCCESS ? "Success" : "Fail");
+    // Callback is registered but no action required
+    (void)mac_addr; (void)status; // Suppress unused parameter warnings
 }
 
 
@@ -2121,9 +2127,16 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
     } else if (type == WS_EVT_DISCONNECT) {
         if (ENABLE_DEBUG_SERIAL) debugPrintln("WebSocket client disconnected");
     } else if (type == WS_EVT_DATA) {
-        char message[len + 1];
-        memcpy(message, data, len);
-        message[len] = '\0';
+        // Fixed-size buffer to prevent stack overflow (was: char message[len + 1])
+        constexpr size_t MAX_WS_MSG_SIZE = 512;
+        char message[MAX_WS_MSG_SIZE];
+        size_t copyLen = (len < MAX_WS_MSG_SIZE - 1) ? len : MAX_WS_MSG_SIZE - 1;
+        memcpy(message, data, copyLen);
+        message[copyLen] = '\0';
+
+        if (len >= MAX_WS_MSG_SIZE) {
+            debugPrintln("WebSocket message truncated (too large)");
+        }
         
         // *** TASK 1.2: static entfernt (Memory Corruption Fix) ***
         DynamicJsonDocument doc(512); 
@@ -2626,7 +2639,6 @@ void handleSystemStatus(int16_t battery, int16_t temp, int16_t battery_temp, int
             if (driveHighVoltTime == 0) driveHighVoltTime = now;
             if (now - driveHighVoltTime > SAFETY_TRIGGER_DELAY && !isHighVoltageShutdown) {
                 isHighVoltageShutdown = true;
-                highVoltageStopTime = now;
                 debugPrintln("!!! SHUTDOWN: Drive High Voltage (Persistent)!");
                 triggerSkill(8, 20);
             }
@@ -2739,8 +2751,8 @@ void monitorDirectionChange(float yaw) {
     unsigned long now = millis();
     unsigned long rectangleTimeDelta = now - lastPdTime;
 
-    // Verhindere Division durch Null beim ersten Durchlauf
-    if (lastPdTime == 0 || rectangleTimeDelta == 0) {
+    // Verhindere Division durch Null beim ersten Durchlauf (thread-sicher mit < 1)
+    if (lastPdTime == 0 || rectangleTimeDelta < 1) {
         rectangleTimeDelta = 1; // Setze auf einen kleinen Wert
     }
 
@@ -2782,7 +2794,8 @@ void holdTheLine(float yaw) {
     unsigned long now = millis();
     unsigned long rectangleTimeDelta = now - lastPdTime;
 
-    if (lastPdTime == 0 || rectangleTimeDelta == 0) {
+    // Verhindere Division durch Null (thread-sicher mit < 1)
+    if (lastPdTime == 0 || rectangleTimeDelta < 1) {
         rectangleTimeDelta = 1;
     }
 
