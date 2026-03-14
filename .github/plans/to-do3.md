@@ -1,6 +1,13 @@
 # Code-Qualitäts-Audit: ESP32 Rasenmäher Projekt
 
-**Commit:** `78718f2` - Code Quality Audit: Fix critical bugs and remove dead code
+## Commits dieser Session:
+| Hash | Beschreibung |
+|------|--------------|
+| `78718f2` | Phase 1: Fix critical bugs and remove dead code |
+| `61efc62` | docs: Update to-do3.md with completed items |
+| `345a5bd` | chore: Clean up GitHub files |
+| `f590c1b` | Phase 2: ESP-NOW documented + Manual converted |
+| `e2a7b49` | docs: Update to-do3.md - Phase 2 complete |
 
 ---
 
