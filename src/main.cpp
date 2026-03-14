@@ -1125,13 +1125,16 @@ void onDataReceive(const uint8_t *mac_addr, const uint8_t *incomingData, int len
 
     if (senderIndex == -1) return; // Unbekannter Sender
 
-    // --- Befehlsverarbeitung (Mit Punkt-Operator . statt Pfeil ->) ---
+    // --- Befehlsverarbeitung ---
+    // HINWEIS: input_EspNow* und input_Joy* Variablen sind 'volatile int16_t'.
+    // Auf ESP32 sind aligned 16-bit Lese/Schreib-Operationen hardware-atomar.
+    // Mutex-Schutz hier weggelassen für Performance (worst case: 1 veralteter Wert pro 30ms Zyklus).
     switch (cmd.commandCode) {
         case 0:  // Fahrbefehl
             input_EspNowSteer = cmd.steer;
             input_EspNowSpeed = cmd.speed;
-            input_JoySteer = cmd.steer;   // NEU: Separater Speicher für Override-Check
-            input_JoySpeed = cmd.speed;   // NEU
+            input_JoySteer = cmd.steer;   // Separater Speicher für Override-Check
+            input_JoySpeed = cmd.speed;
             lastJoystickCommandTime = millis();
             break;
             
