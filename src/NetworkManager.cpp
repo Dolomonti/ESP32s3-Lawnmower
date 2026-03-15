@@ -88,6 +88,24 @@ void disconnectWiFi() {
     NM_LOG("WiFi disconnected");
 }
 
+// ====================================================================================
+// ===== WEB HANDLER (aus main.cpp verschoben) ========================================
+// ====================================================================================
+
+void resetDevice(AsyncWebServerRequest *request) {
+    NM_LOG("Resetting device...");
+    request->send(200, "text/plain", "Device is restarting.");
+    extern volatile bool shouldRestart;
+    shouldRestart = true;
+}
+
+void handleResetWifi(AsyncWebServerRequest *request) {
+    NM_LOG("Resetting WiFi credentials...");
+    extern void writeWiFiCredentialsToNVS(const char*, const char*);
+    writeWiFiCredentialsToNVS("", "");
+    request->send(200, "text/plain", "WiFi credentials reset. Please restart.");
+}
+
 String getLocalIPString() {
     if (WiFi.status() == WL_CONNECTED) {
         return WiFi.localIP().toString();

@@ -2535,29 +2535,7 @@ void connectToWiFi(const char* ssid, const char* password) {
 // It is used to mirror the ESP32 serial monitor output to the webpage.
 
 
-// Add logic here for what should happen when the resetDevice function is triggered
-void resetDevice(AsyncWebServerRequest *request) {
-    if (ENABLE_DEBUG_SERIAL) {
-      debugPrintln("Resetting device...");
-    }
-    logToWebpage("Resetting device...");
-    request->send(200, "text/plain", "Device is restarting.");
-    // *** TASK 1.3: Blockierenden Code durch Flag ersetzt ***
-    shouldRestart = true;
-}
-
-// Add this new function to handle the WiFi reset request
-void handleResetWifi(AsyncWebServerRequest *request) {
-    if (ENABLE_DEBUG_SERIAL) {
-      debugPrintln("Resetting WiFi credentials in EEPROM...");
-    }
-    logToWebpage("Resetting WiFi credentials in EEPROM...");
-    // Write empty strings to the credential memory locations
-    writeWiFiCredentialsToNVS("", "");
-    request->send(200, "text/plain", "WiFi credentials reset. Please restart the device.");
-    logToWebpage("WiFi credentials have been reset on the device. A restart is required to apply the changes.");
-}
-
+// resetDevice() und handleResetWifi() sind jetzt in NetworkManager.cpp
 
 // ====================================================================================
 // ===== AFTER: Optimierte Receive Funktion mit Flag-Check & Erweitertem Debug ========
