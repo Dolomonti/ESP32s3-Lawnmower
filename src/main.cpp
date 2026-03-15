@@ -1171,6 +1171,31 @@ void handleSetupSkills(uint8_t skill, int16_t param1, int16_t param2, int16_t pa
             }
             DEBUG_PRINTF("Skill 7: Updated currentMaxSpeed to %d and currentMaxSteer to %d\n", currentSettings.currentMaxSpeed, currentSettings.currentMaxSteer);
             break;
+        
+        // ====================================================================================
+        // ===== PHASE 5: HARDWARE-SICHERHEIT WARNUNG =========================================
+        // ====================================================================================
+        // 
+        // ⚠️  WARNUNG: SKILL_ESTOP (Not-Aus) ist aktuell nur SOFTWARE-BASIERT!
+        //
+        // Bei einem hängenden/freezenden ESP32-Microcontroller kann die Software
+        // den Motor NICHT mehr stoppen! Bei rotierenden Messern und 36V Antrieb
+        // besteht Lebensgefahr!
+        //
+        // HARDWARE-VORAUSSETZUNG für den sicheren Betrieb:
+        // EMERGENCY_STOP_PIN (GPIO 15) muss PARALLEL als physischer Unterbrecher 
+        // verdrahtet werden, der direkt die Relais für BLADE_UNIT_PIN (GPIO 19)
+        // und DRIVE_UNIT_PIN (GPIO 20) stromlos macht.
+        //
+        // EMPFOHLENE VERDRAHTUNG:
+        // - E-Stop Taster als Öffner zwischen Relais-Spule und Masse schalten
+        // - Oder: E-Stop Taster schaltet Hauptstromversorgung zu den Motor-Controllern
+        // - Software-E-Stop (dieser Code) als zusätzliche Sicherheitsschicht
+        //
+        // Sicherheitsstandards: EN ISO 12100, EN 60204-1 (Not-Aus muss hardware-
+        // basiert sein und den Stromkreis unterbrechen, nicht nur Signale senden)
+        //
+        // ====================================================================================
         case SKILL_ESTOP:
             // Config mode: Set capsize angle (param1=CONFIG_MODE_ANGLE)
             if (param1 == CONFIG_MODE_ANGLE) {

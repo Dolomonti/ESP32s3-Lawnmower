@@ -167,14 +167,21 @@
 
 ---
 
-## Phase 5: Hardware-Sicherheit (Not-Aus) 🔴 SICHERHEITSKRITISCH
+## Phase 5: Hardware-Sicherheit (Not-Aus) ✅ ABGESCHLOSSEN
 
 **Problem:** E-Stop ist nur Software-basiert.
 
-#### Schritt 5.1: Warnkommentar hinzufügen
-- [ ] Kommentar in E-Stop Skill einfügen
-- [ ] Hardware-Verdrahtung dokumentieren
-- [ ] **AKTUALISIERT:** _
+#### Schritt 5.1: Warnkommentar hinzufügen ✅ ERLEDIGT
+- [x] Großer Warnkommentar vor `case SKILL_ESTOP` eingefügt
+- [x] Hardware-Verdrahtung dokumentiert (GPIO 15, 19, 20)
+- [x] Sicherheitsstandards erwähnt (EN ISO 12100, EN 60204-1)
+- [x] Empfohlene Schaltung beschrieben
+- [x] **AKTUALISIERT:** 2026-03-15 05:42 CET
+
+#### Schritt 5.2: Build testen ✅ ERLEDIGT
+- [x] `pio run -e esp32s3` erfolgreich
+- [x] **ERGEBNIS:** SUCCESS - RAM: 16.5%, Flash: 33.5%
+- [x] **AKTUALISIERT:** 2026-03-15 05:43 CET - Phase 5 ABGESCHLOSSEN
 
 ---
 
