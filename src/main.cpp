@@ -1036,7 +1036,9 @@ void handleBladeSkills(uint8_t skill, int16_t param1, int16_t param2, int16_t pa
             currentSettings.bladeStage2Speed = param2;
             currentSettings.bladeMaxSpeed = param3;
             currentSettings.bladeCableResetRpm = param4;
-            saveSettings();
+            if (!saveSettings()) {
+                DEBUG_LOG("ERROR: Skill 10 - Failed to save blade speeds!");
+            }
             DEBUG_PRINTF("Skill 10: Blade speeds updated - Zero: %d, Working pwm: %d, 2 Stage pwm: %d, Max pwm: %d, Reset pwm: %d\n",
                          BLADE_ZERO_US, currentSettings.bladeWorkingSpeed, currentSettings.bladeStage2Speed,
                          currentSettings.bladeMaxSpeed, currentSettings.bladeCableResetRpm);
@@ -1140,7 +1142,9 @@ void handleSetupSkills(uint8_t skill, int16_t param1, int16_t param2, int16_t pa
             currentSettings.driveEmergencyLowTemp = param4;
             currentSettings.driveSafetyModeTemp = param5;
             currentSettings.driveHighTemp = param6;
-            saveSettings();
+            if (!saveSettings()) {
+                DEBUG_LOG("ERROR: Skill 12 - Failed to save drive levels!");
+            }
             DEBUG_PRINTF("Skill 12: Drive settings updated - V: %d, %d, %d | Temp: %d, %d, %d\n",
                          currentSettings.driveMinShutdownVoltage, currentSettings.driveSafetyModeVoltage,
                          currentSettings.driveHighVoltage, currentSettings.driveEmergencyLowTemp,
@@ -1153,7 +1157,9 @@ void handleSetupSkills(uint8_t skill, int16_t param1, int16_t param2, int16_t pa
             currentSettings.bladeEmergencyLowTemp = param4;
             currentSettings.bladeSafetyModeTemp = param5;
             currentSettings.bladeHighTemp = param6;
-            saveSettings();
+            if (!saveSettings()) {
+                DEBUG_LOG("ERROR: Skill 13 - Failed to save blade levels!");
+            }
             DEBUG_PRINTF("Skill 13: Blade settings updated - V: %d, %d, %d | Temp: %d, %d, %d\n",
                          currentSettings.bladeMinShutdownVoltage, currentSettings.bladeSafetyModeVoltage,
                          currentSettings.bladeHighVoltage, currentSettings.bladeEmergencyLowTemp,
@@ -1162,7 +1168,9 @@ void handleSetupSkills(uint8_t skill, int16_t param1, int16_t param2, int16_t pa
         case SKILL_CAPSIZE_PARAMS:
             currentSettings.capsizeAngle = (float)param1;
             currentSettings.capsizeTimeout = param2;
-            saveSettings();
+            if (!saveSettings()) {
+                DEBUG_LOG("ERROR: Skill 14 - Failed to save capsize parameters!");
+            }
             DEBUG_PRINTF("Skill 14: Capsize parameters updated - Angle: %.2f, Timeout: %d\n",
                          currentSettings.capsizeAngle, currentSettings.capsizeTimeout);
             break;
