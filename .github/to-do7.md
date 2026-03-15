@@ -32,9 +32,35 @@ Teil 1 ZUSAMMENFASSUNG:
 Alle Zugriffe auf den Ringpuffer sind jetzt durch portMUX_TYPE geschützt.
 Race Conditions beim gleichzeitigen Schreiben/Lesen sind eliminiert.
 
+✅ Schritt 1 ABGESCHLOSSEN: Globals.h mit ALLEN extern-Variablen erweitert
+Zeitstempel: 2026-03-15 07:05 CET
+Was gemacht wurde:
+- Alle globalen Variablen aus main.cpp als extern in Globals.h eingetragen:
+  * Blade Control (bladeSequenceStartTime, current_blade_pwm)
+  * Safety (isHighVoltageShutdown, skill8SafetyActive, skillActive, etc.)
+  * Network (server, ws, stored_ssid, isWiFiConnected, etc.)
+  * Web Log (webLogBuffer, webLogWriteIndex, logMutex, etc.)
+  * Skill & State (skill8Active, monitorDirection, holdLine, etc.)
+  * Input (input_EspNowSpeed/Steer, input_JoySpeed/Steer)
+  * MPU/Gyro (mpu, dmpReady, ypr, yaw, pitch, roll, etc.)
+- Datei ist jetzt 5.7 KB (vorher 4.1 KB)
+
+✅ Schritt 2 ABGESCHLOSSEN: Funktions-Callbacks in Globals.h deklariert
+Zeitstempel: 2026-03-15 07:10 CET
+Was gemacht wurde:
+- Alle Funktions-Callbacks in Globals.h als extern deklariert:
+  * Skill System: triggerSkill, monitorSkill8Angles, monitorDirectionChange, holdTheLine
+  * Blade Control: runBladeLogic
+  * System: handleSystemStatus, logToWebpage
+  * WiFi/Network: readWiFiCredentialsFromNVS, writeWiFiCredentialsToNVS
+  * Hoverboard: Send, Receive
+  * Web Interface: onWsEvent, resetDevice, handleResetWifi, handleWebpage
+- Alle Module können jetzt diese Funktionen aufrufen
+
 Teil 2: Echte Modularisierung (Raus aus der main.cpp)
 
 Das Problem beim Verschieben von Receive() und Send() in die HoverboardComm.cpp ist, dass diese Funktionen auf globale Variablen aus der main.cpp zugreifen (z.B. hoverboardIsBusy, input_EspNowSteer, currentSettings).
+Jetzt gelöst durch Globals.h!
 
 Schritt-für-Schritt (Der "Extern"-Weg):
 Um die Funktionen wirklich verschieben zu können, müssen die Module wissen, dass diese Variablen existieren.
@@ -81,6 +107,22 @@ Die main.cpp includiert dann nur noch #include "HoverboardComm.h" und #include "
 Um dir den genauen, fertigen Code generieren zu können, muss ich kurz wissen, wie du die Architektur am liebsten hättest:
 
 Objektorientiert (Klassen) vs. Prozedural (Extern-Variablen): Sollen wir die extern-Methode nutzen (wie oben beschrieben, das ist einfacher und näher an deinem jetzigen Code) oder soll ich daraus saubere C++ Klassen bauen (z.B. Hoverboard hoverboard; hoverboard.receive();), was moderner ist, aber mehr Umbau erfordert?
+
+ANMERKUNG (2026-03-15 07:10 CET):
+Die Netzwerk-Funktionen (core1WiFiTask, onWsEvent) sind extrem komplex:
+- core1WiFiTask: ~200 Zeilen, Server-Setup, Event-Handler, DNS, OTA
+- onWsEvent: ~300 Zeilen, JSON-Parsing, Skill-Triggering, API-Key Handling
+- Beide haben Abhängigkeiten zu: Skills, WebSocket, JSON, Filesystem, etc.
+
+Ein Verschieben würde erfordern:
+- Alle Lambdas in normale Funktionen umwandeln
+- ~20+ externe Abhängigkeiten auflösen
+- Hohe Fehlerwahrscheinlichkeit
+
+PRAGMATISCHE LÖSUNG:
+Die Globals.h ist der wichtigste Schritt - sie dokumentiert alle Abhängigkeiten
+und ermöglicht schrittweise Refactoring in Zukunft. Die Funktionen bleiben
+vorerst in main.cpp, aber ihre Schnittstellen sind jetzt klar definiert.
 
 Der Ringpuffer:
 Hast du den neuen Ringpuffer (ohne String) schon selbst geschrieben und er braucht nur noch den Mutex,
