@@ -4,6 +4,7 @@
 #include "Config.h"  // Phase 4: Zentrale Konfiguration
 #include "HoverboardComm.h"  // Phase 4.3: Hoverboard UART Kommunikation
 #include "SensorManager.h"   // Phase 4.4: MPU6050 & Sensoren
+#include "NetworkManager.h"  // Phase 4.5: WiFi & WebServer
 #include <ESP32Servo.h>  // Für bladeEsc
 
 /*
@@ -1607,34 +1608,7 @@ void IRAM_ATTR dmpDataReady() {
   }
 }
 
-void setupWiFiAP() {
-    
-    WiFi.mode(WIFI_AP_STA);
-
-    const char* ssid = "Lawnmower_Control";
-    const char* password = "123456789";
-    IPAddress local_IP(192, 168, 4, 1);
-    IPAddress gateway(192, 168, 4, 1);
-    IPAddress subnet(255, 255, 255, 0);
-
-    // 2. Statische IP-Konfiguration für schnelleren Verbindungsaufbau (DHCP-Fix)
-    if (!WiFi.softAPConfig(local_IP, gateway, subnet)) {
-        DEBUG_LOG("[WiFiAP] AP Config Failed");
-    }
-
-    // 3. Start des Access Points auf Kanal 6 (Wichtig für ESP-NOW Kompatibilität)
-    // Start the Access Point
-    if (WiFi.softAP(ssid, password, 6, 0, 4)) {
-        // Starte den DNS Server und leite alle (*) Anfragen auf unsere eigene IP um
-        dnsServer.start(DNS_PORT, "*", local_IP);
-
-        DEBUG_LOG("[WiFiAP] Access Point started successfully");
-        DEBUG_PRINTF("[WiFiAP] SSID: %s | Password: %s\n", ssid, password);
-        DEBUG_PRINTF("[WiFiAP] AP IP Address: %s\n", WiFi.softAPIP().toString().c_str());
-    } else {
-        DEBUG_LOG("[WiFiAP] Failed to start Access Point!");
-    }
-}
+// Phase 4.5: setupWiFiAP() ist jetzt in NetworkManager.cpp
 
 // =========================================================
 // --- VOLLSTÄNDIGE BLADE CONTROL LOGIC (STABILISIERT) ---

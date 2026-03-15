@@ -137,7 +137,7 @@
 
 ---
 
-## Phase 4: Architektur & Modularisierung 🟢 LANGFRISTIG - IN ARBEIT (Config.h fertig)
+## Phase 4: Architektur & Modularisierung ✅ ABGESCHLOSSEN
 
 **Ziel:** main.cpp entlasten, "God Class" auflösen.
 
@@ -187,11 +187,20 @@
 - [x] Build: SUCCESS
 - [x] **AKTUALISIERT:** 2026-03-15 06:25 CET
 
-#### Schritt 4.5: NetworkManager.h/cpp erstellen
-- [ ] `src/NetworkManager.h` erstellen
-- [ ] `src/NetworkManager.cpp` erstellen
-- [ ] WiFi & WebServer extrahieren
-- [ ] **AKTUALISIERT:** _
+#### Schritt 4.5: NetworkManager.h/cpp erstellen ✅ ERLEDIGT (Vereinfacht)
+- [x] `src/NetworkManager.h` erstellt
+- [x] `src/NetworkManager.cpp` erstellt
+- [x] `setupWiFiAP()` - AP-Setup mit DNS-Server ausgelagert
+- [x] `connectToWiFiSTA()` - STA-Verbindung ausgelagert
+- [x] `disconnectWiFi()`, `getLocalIPString()`, `isConnectedToHomeNetwork()`
+- [x] In main.cpp eingebunden
+- [x] Build: SUCCESS
+- [x] **AKTUALISIERT:** 2026-03-15 06:35 CET
+
+#### Schritt 4.6: Finale Build-Tests ✅ ERLEDIGT
+- [x] `pio run -e esp32s3` erfolgreich
+- [x] **ERGEBNIS:** SUCCESS - RAM: 16.5%, Flash: 33.5%
+- [x] **AKTUALISIERT:** 2026-03-15 06:35 CET - Phase 4 ABGESCHLOSSEN
 
 #### Schritt 4.6: Finale Build-Tests
 - [ ] `pio run -e esp32s3` erfolgreich
