@@ -225,9 +225,6 @@ typedef struct __attribute__((packed)) {
     uint16_t checksum;    // Checksum
 } ESPNowCommand;
 
-ESPNowCommand receivedCommand;
-ESPNowCommand espNowCommand; 
-ESPNowCommand sendBuffer;
 SemaphoreHandle_t espNowMutex;
 
 // Serial Command Struktur (Hoverboard-Protokoll)
@@ -249,7 +246,7 @@ SerialCommand Command;
 // Globale Variablen für die Steuerung
 uint16_t global_cmdCode = 0;   
 uint16_t global_accel = 10;    
-uint16_t global_brake = 150;   
+uint16_t global_brake = 100;   
 int16_t global_maxSpeedL = 0; // FIX: Deklaration hinzugefügt
 int16_t global_maxSpeedR = 0; // FIX: Deklaration hinzugefügt
 
@@ -492,8 +489,6 @@ byte *p;  // Pointer for serial data parsing in Receive()
 byte incomingByte;
 byte incomingBytePrev;
 
-bool button1State = false;
-bool button2State = false;
 
 
 
@@ -536,7 +531,6 @@ bool saveSettings();
 void loadSettings();
 void monitorDirectionChange(float yaw);
 void holdTheLine(float yaw);
-void holdPositionMovement(float yaw);
 void resetHorizon();
 void resetAll();
 void core1WiFiTask(void * parameter);
@@ -553,6 +547,7 @@ void espNowTask(void *pvParameters);
 void mpuReadTask(void *parameter);
 void statusTask(void *pvParameters);
 void controlLogicTask(void *pvParameters); // Neue Zeile hinzugefügt
+void eepromSaveTask(void *pvParameters); // Task 5.5: EEPROM Speicher-Task
 
 //Gyro Initialization
 
@@ -588,16 +583,17 @@ bool hoverboardInverted = false;      // To detect capsizing
 int currentCase = 0;          // Case trigger variable (1, 2, 3, 4, or 5)
 bool monitorDirection = false;      // Flag for Cases 2 and 4
 bool holdLine = false;              // Flag for Case 3
-bool holdPosition = false;          // Flag for Case 5 (triggered via Remote)
 float targetAngle = 0;              // Target angle for Cases 2 and 4
 int turnDirection = 0;              // direction achange awareness
 float startYaw = 0;                 // Initial yaw for Cases 3 and 5
-float cumulativeYaw = 0;            // Cumulative yaw for Case 5
 unsigned long case3StartTime = 0;   // Timer for Case 3 delay
 unsigned long lastSerialUpdate = 0;       // Timer for serial updates
 
 
-unsigned long capsizeDetectTime = 0; // 
+unsigned long capsizeDetectTime = 0;
+
+// Task 5.5: Flag für asynchrones EEPROM-Speichern
+volatile bool settingsNeedSave = false; // 
 
 
  
@@ -649,6 +645,7 @@ volatile float current_speed_kmh = 0.0; // Stores the calculated speed in km/h
 
 //Buffer Synchronization with Mutex: Synchronize shared buffers using a mutex to avoid data corruption
 SemaphoreHandle_t bufferMutex = xSemaphoreCreateMutex();
+SemaphoreHandle_t feedbackMutex;
 // In der Nähe Ihrer anderen Mutex-Deklarationen
 SemaphoreHandle_t i2cMutex;
 
@@ -675,7 +672,7 @@ void writeWiFiCredentialsToEEPROM(const char *ssid, const char *password) {
 
     // Warnung wenn zu lang
     if (ssidLen >= 32 || passwordLen >= 32) {
-        if (ENABLE_DEBUG_SERIAL) debugPrintln("WARNING: WiFi credentials truncated (max 31 chars)");
+        DEBUG_LOG("WARNING: WiFi credentials truncated (max 31 chars)");
     }
 
     // Schreiben mit Null-Terminierung
@@ -1387,7 +1384,7 @@ void onDataReceive(const uint8_t *mac_addr, const uint8_t *incomingData, int len
                 if (!peers[senderIndex].isConnected) {
                     peers[senderIndex].isConnected = true;
                     peers[senderIndex].reconnectAttempts = 0;
-                    if (ENABLE_DEBUG_SERIAL) debugPrintf("Peer %d connected via ESP-NOW.\n", deviceList[senderIndex].id);
+                    DEBUG_PRINTF("Peer %d connected via ESP-NOW.\n", deviceList[senderIndex].id);
                 }
                 peers[senderIndex].lastSeen = millis();
                 break;           
@@ -1730,7 +1727,7 @@ void runBladeLogic() {
             // Sobald Energie für das Messer gebraucht wird, Pin 20 hochziehen
             if (digitalRead(BLADE_UNIT_PIN) == LOW) {
                 digitalWrite(BLADE_UNIT_PIN, HIGH);
-                if (ENABLE_DEBUG_SERIAL) debugPrintln("Blade Logic: Unit Power ON (Pin 20)");
+                DEBUG_LOG("Blade Logic: Unit Power ON (Pin 20)");
             }
             
             if (!bladeEsc.attached()) {
@@ -1753,7 +1750,7 @@ void runBladeLogic() {
             else {
                 current_blade_pwm = BLADE_ZERO_US;
                 currentBladeState = BLADE_WORK;
-                if (ENABLE_DEBUG_SERIAL) debugPrintln("Blade Reset Sequence finished.");
+                DEBUG_LOG("Blade Reset Sequence finished.");
             }
             break;
     }
@@ -1908,6 +1905,12 @@ void setup() {
     if (i2cMutex == NULL) {
         debugPrintln("Konnte i2cMutex nicht erstellen!");
     }
+    
+    feedbackMutex = xSemaphoreCreateMutex();
+    if (feedbackMutex == NULL) {
+        debugPrintln("Konnte feedbackMutex nicht erstellen!");
+    }
+    
     mpuSemaphore = xSemaphoreCreateBinary();
     if (mpuSemaphore == NULL) {
         debugPrintln("FATAL: Could not create MPU semaphore!");
@@ -2090,6 +2093,9 @@ void setup() {
     
     // Task für die reine Fahr-Logik (Absolute Priorität auf Kern 1)
     xTaskCreatePinnedToCore(controlLogicTask, "ControlTask", 4096, NULL, 4, NULL, 1);
+    
+    // Task 5.5: EEPROM Speicher-Task (niedrige Priorität, Core 0)
+    xTaskCreatePinnedToCore(eepromSaveTask, "EepromTask", 2048, NULL, 1, NULL, 0);
 
     // Letzter Befehl: Kanal 6 erzwingen, falls WiFi.begin() ihn verstellt hat
     vTaskDelay(200 / portTICK_PERIOD_MS);
@@ -2154,7 +2160,7 @@ void controlLogicTask(void *pvParameters) {
             missionRequestSent = false;
             missionTriggeredOnce = false;
             resetMissionFlags = false;
-            if (ENABLE_DEBUG_SERIAL) debugPrintln(">> MISSION FLAGS RESET");
+            DEBUG_LOG(">> MISSION FLAGS RESET");
         }
 
         int16_t taskSteer = 0;
@@ -2175,7 +2181,7 @@ void controlLogicTask(void *pvParameters) {
                 missionRequestSent = false;
                 resetAll();
                 shouldSend = false;
-                if (ENABLE_DEBUG_SERIAL) debugPrintln(">> MISSION ABORT: E-Stop (Skill 8) triggered!");
+                DEBUG_LOG(">> MISSION ABORT: E-Stop (Skill 8) triggered!");
             }
             // A. Sicherheit: Manueller Abbruch NUR durch echte Joystick-Bewegung
             // input_EspNowSpeed enthält hier 300 (Mission), input_JoySpeed enthält 0.
@@ -2185,7 +2191,7 @@ void controlLogicTask(void *pvParameters) {
                 missionTriggeredOnce = false;
                 missionRequestSent = false;
                 shouldSend = true; 
-                if (ENABLE_DEBUG_SERIAL) debugPrintln(">> MISSION ABORT: Real Joystick Override detected.");
+                DEBUG_LOG(">> MISSION ABORT: Real Joystick Override detected.");
             }
             else {
                 // B. MISSIONS-START: Befehl genau EINMAL senden
@@ -2195,7 +2201,7 @@ void controlLogicTask(void *pvParameters) {
                     
                     missionRequestSent = true; 
                     shouldSend = false;        
-                    if (ENABLE_DEBUG_SERIAL) debugPrintln(">> MISSION START: One-Shot Sent. Waiting for ACK...");
+                    DEBUG_LOG(">> MISSION START: One-Shot Sent. Waiting for ACK...");
                 }
                 // C. WARTEMODUS: ESP32 schweigt und wartet auf die Busy-Flagge vom STM32
                 else if (missionRequestSent && !hoverboardIsBusy && !missionTriggeredOnce) {
@@ -2214,7 +2220,7 @@ void controlLogicTask(void *pvParameters) {
                     missionTriggeredOnce = false;
                     missionRequestSent = false; 
                     shouldSend = true; 
-                    if (ENABLE_DEBUG_SERIAL) debugPrintln(">> MISSION DONE: Target reached.");
+                    DEBUG_LOG(">> MISSION DONE: Target reached.");
                 }
                 else {
                     shouldSend = false; 
@@ -2262,7 +2268,7 @@ void controlLogicTask(void *pvParameters) {
 
 void core1WiFiTask(void *parameter) {
     // AP wurde bereits im setup() gestartet. Hier starten wir nur die Server-Dienste.
-    if (ENABLE_DEBUG_SERIAL) debugPrintln("[WiFiTask] Server-Dienste gestartet.");
+    DEBUG_LOG("[WiFiTask] Server-Dienste gestartet.");
 
     ws.onEvent(onWsEvent);
     server.addHandler(&ws);
@@ -2325,7 +2331,7 @@ void core1WiFiTask(void *parameter) {
                 esp_wifi_set_channel(ESPNOW_FIXED_CHANNEL, WIFI_SECOND_CHAN_NONE);
                 esp_wifi_set_promiscuous(false);
 
-                if (ENABLE_DEBUG_SERIAL) debugPrintln("AP shut off - Channel locked to 6.");
+                DEBUG_LOG("AP shut off - Channel locked to 6.");
             }
         }
 
@@ -2350,7 +2356,7 @@ void core1WiFiTask(void *parameter) {
 // ====================================================================================
 void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
     if (type == WS_EVT_CONNECT) {
-        if (ENABLE_DEBUG_SERIAL) debugPrintln("WebSocket client connected");
+        DEBUG_LOG("WebSocket client connected");
         client->text("Welcome to ESP32 WebSocket!");
         
         // Send settings including API Key
@@ -2362,7 +2368,7 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
         client->text(output);
 
     } else if (type == WS_EVT_DISCONNECT) {
-        if (ENABLE_DEBUG_SERIAL) debugPrintln("WebSocket client disconnected");
+        DEBUG_LOG("WebSocket client disconnected");
     } else if (type == WS_EVT_DATA) {
         // Fixed-size buffer to prevent stack overflow (was: char message[len + 1])
         constexpr size_t MAX_WS_MSG_SIZE = 512;
@@ -2394,11 +2400,8 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
                      String newKey = doc["apiKey"].as<String>();
                      if (newKey.length() < 64) {
                          strlcpy(currentSettings.apiKey, newKey.c_str(), sizeof(currentSettings.apiKey));
-                         if (saveSettings()) {
-                             client->text("LOG: API Key saved.");
-                         } else {
-                             client->text("LOG: Error - Failed to save API Key!");
-                         }
+                         settingsNeedSave = true; // Async speichern im eepromSaveTask
+                         client->text("LOG: API Key wird gespeichert...");
                      } else {
                          client->text("LOG: Error - API Key too long.");
                      }
@@ -2548,7 +2551,7 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
                         currentSkill = 0;
                         currentCase = 0;
                         global_cmdCode = 0;        // WICHTIG: Setzt Hoverboard auf "Speed-Mode" (0) zurück
-                        if (ENABLE_DEBUG_SERIAL) debugPrintln("Joystick Moved -> Forced Manual Mode (Cmd 0)");
+                        DEBUG_LOG("Joystick Moved -> Forced Manual Mode (Cmd 0)");
                     }
                     // -------------------------------------------------------
 
@@ -2567,7 +2570,7 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
             }
             }
             else {
-                if (ENABLE_DEBUG_SERIAL) debugPrintf("Unknown WS type: %s\n", msgType);
+                DEBUG_PRINTF("Unknown WS type: %s\n", msgType);
             }
         } 
     } 
@@ -2711,7 +2714,10 @@ void Receive() {
                                          NewFeedback.cmdLed);
 
       if (calcChecksum == NewFeedback.checksum) {
-        memcpy(&Feedback, &NewFeedback, sizeof(SerialFeedback));
+        if (xSemaphoreTake(feedbackMutex, (TickType_t)5) == pdTRUE) {
+            memcpy(&Feedback, &NewFeedback, sizeof(SerialFeedback));
+            xSemaphoreGive(feedbackMutex);
+        }
 
         // 1. BUSY FLAG EXTRAHIEREN (Bit 8: Meldet der STM32 'dist_mode_active'?)
         hoverboardIsBusy = (Feedback.cmdLed & 0x0100) != 0;
@@ -2780,8 +2786,6 @@ void loop(void)
     // Das garantiert ein stabiles 30ms Sende-Intervall, unabhängig von der CPU-Last.
     
     // Wir aktualisieren hier nur noch die Variablen für die Web-Anzeige
-    button1State = !digitalRead(BUTTON1_PIN);
-    button2State = !digitalRead(BUTTON2_PIN);
     // 8. Web Log Timer (Log-Daten an Website schicken alle 500ms)
         if (webLogActive && (millis() - lastWebLogSend > 500)) {        lastWebLogSend = millis();
         if (webLogBuffer.length() > 0) {
@@ -2800,7 +2804,7 @@ void loop(void)
 }
 
 void mpuReadTask(void *parameter) {
-  if (ENABLE_DEBUG_SERIAL) debugPrintln("MPU Reading Task (Core 0) started.");
+  DEBUG_LOG("MPU Reading Task (Core 0) started.");
   
   for (;;) {
     // Erhöhter Timeout für Semaphore, um auf ISR zu warten
@@ -2941,14 +2945,12 @@ void resetAll() {
     currentCase = 0;
     monitorDirection = false;
     holdLine = false;
-    holdPosition = false;
     turnDirection = 0;
     skillActive = false;
     currentSkill = 0;
     skillSteer = 0;
     input_EspNowSpeed = 0;
     input_EspNowSteer = 0;
-    cumulativeYaw = 0;
     capsizeDetectTime = 0;
     lastError = 0.0f;
     lastPdTime = 0;
@@ -3060,33 +3062,17 @@ void holdTheLine(float yaw) {
 
 
 
-void holdPositionMovement(float yaw) {
-    static float previousYaw = yaw;
-
-    // Phase 3.1: Using normalizeAngle helper
-    float yawChange = normalizeAngle(yaw - previousYaw);
-
-    cumulativeYaw += abs(yawChange);
-    previousYaw = yaw;
-
-    float rectangleError = normalizeAngle(yaw - startYaw);
-
-    // if (ENABLE_DEBUG_SERIAL) {
-    //   debugPrint("Deviation: ");
-    //   debugPrintln(rectangleError);
-    // }
-
-    if (abs(ypr[0]) < 0.5) {
-        DEBUG_LOG("Standstill detected!");
-        holdPosition = false;
-    }
-}
-
 void statusTask(void *pvParameters) {
     // Statische Variable für die Glättung
     static float smoothed_blade_mv = 0;
 
     for (;;) {
+        // Lokale Kopie des Feedbacks mit Mutex-Schutz
+        SerialFeedback safeFeedback;
+        if (xSemaphoreTake(feedbackMutex, (TickType_t)5) == pdTRUE) {
+            memcpy(&safeFeedback, &Feedback, sizeof(SerialFeedback));
+            xSemaphoreGive(feedbackMutex);
+        }
         // =========================================================
         // 1. SCHNELLE MESSUNG (Alle 50ms)
         // =========================================================
@@ -3144,10 +3130,10 @@ void statusTask(void *pvParameters) {
             // --- DRIVE TEMP (Hoverboard) ---
             // Feedback ist z.B. 300 (30.0°C). Webseite teilt durch 100.
             // Wir senden mal 10 -> 3000 / 100 = 30.00
-            if (Feedback.boardTemp == 0) { 
+            if (safeFeedback.boardTemp == 0) { 
                 doc["temp"] = nullptr; 
             } else { 
-                doc["temp"] = Feedback.boardTemp * 10; 
+                doc["temp"] = safeFeedback.boardTemp * 10; 
             }
             
             // --- BLADE BATTERY (Zusatzakku) ---
@@ -3176,9 +3162,9 @@ void statusTask(void *pvParameters) {
             
             // FIX: Right wheel is mounted mirrored, so its feedback is inverted (negative for forward)
             // We invert it here to get positive values for forward driving.
-            int16_t speedR_corrected = -Feedback.speedR_meas;
+            int16_t speedR_corrected = -safeFeedback.speedR_meas;
 
-            float avg_rpm = (Feedback.speedL_meas + speedR_corrected) / 2.0f;
+            float avg_rpm = (safeFeedback.speedL_meas + speedR_corrected) / 2.0f;
             
             // Formula: kmh = (avg_rpm * 0.95m * 60) / 1000
             current_speed_kmh = (avg_rpm * 0.95f * 60.0f) / 1000.0f;
@@ -3219,6 +3205,21 @@ void statusTask(void *pvParameters) {
             serializeJson(doc, jsonString);
             ws.textAll(jsonString); 
         }
+    }
+}
+
+// Task 5.5: EEPROM Speicher-Task (asynchrones Speichern außerhalb des Web-Threads)
+void eepromSaveTask(void *pvParameters) {
+    for (;;) {
+        if (settingsNeedSave) {
+            if (saveSettings()) {
+                DEBUG_LOG("Settings saved successfully (async)");
+            } else {
+                DEBUG_LOG("ERROR: Failed to save settings (async)");
+            }
+            settingsNeedSave = false;
+        }
+        vTaskDelay(100 / portTICK_PERIOD_MS); // Prüfe alle 100ms
     }
 }
 
