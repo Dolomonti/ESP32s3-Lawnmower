@@ -740,21 +740,33 @@ void managePeers() {
  * @brief Saves the current settings structure AND a CRC32 checksum to EEPROM.
  */
 bool saveSettings() {
+    // Phase 1.2: Umstellung auf Preferences (NVS) mit Wear-Leveling
+    Preferences prefs;
+    
     // 1. Berechne den CRC32 der Einstellungs-Struktur
     uint32_t calculated_crc = esp_crc32_le(0, (uint8_t*)&currentSettings, sizeof(Settings));
-
-    // 2. Schreibe die Struktur an ihre Adresse
-    EEPROM.put(SETTINGS_ADDR, currentSettings);
     
-    // 3. Schreibe den berechneten CRC direkt HINTER die Struktur
-    EEPROM.put(SETTINGS_ADDR + sizeof(Settings), calculated_crc);
-
-    // 4. Änderungen bestätigen
-    if (EEPROM.commit()) {
-        DEBUG_LOG("Settings and CRC successfully saved to EEPROM.");
+    // 2. NVS öffnen (Namespace "mower", ReadWrite-Modus)
+    if (!prefs.begin("mower", false)) {
+        DEBUG_LOG("ERROR: Failed to open NVS namespace!");
+        return false;
+    }
+    
+    // 3. Settings als Bytes speichern
+    size_t bytesWritten = prefs.putBytes("settings", &currentSettings, sizeof(Settings));
+    
+    // 4. CRC separat speichern
+    prefs.putUInt("crc", calculated_crc);
+    
+    // 5. NVS schließen
+    prefs.end();
+    
+    // 6. Prüfen ob Speichern erfolgreich
+    if (bytesWritten == sizeof(Settings)) {
+        DEBUG_LOG("Settings and CRC successfully saved to NVS.");
         return true;
     } else {
-        DEBUG_LOG("ERROR: Failed to save settings to EEPROM!");
+        DEBUG_LOG("ERROR: Failed to save settings to NVS!");
         return false;
     }
 }

@@ -21,13 +21,14 @@
 - [x] `#include <Preferences.h>` hinzugefügt (Zeile 272)
 - [x] **AKTUALISIERT:** 2026-03-15 05:00 CET - Include erfolgreich getauscht
 
-#### Schritt 1.2.2: `saveSettings()` umschreiben
-- [ ] `Preferences prefs;` erstellen
-- [ ] `prefs.begin("mower", false);` öffnen
-- [ ] `prefs.putBytes("settings", &currentSettings, sizeof(currentSettings));`
-- [ ] `prefs.putUInt("crc", calculatedCRC);`
-- [ ] `prefs.end();` schließen
-- [ ] **AKTUALISIERT:** _
+#### Schritt 1.2.2: `saveSettings()` umschreiben ✅ ERLEDIGT
+- [x] `Preferences prefs;` erstellt
+- [x] `prefs.begin("mower", false);` öffnet NVS
+- [x] `prefs.putBytes("settings", &currentSettings, sizeof(Settings));`
+- [x] `prefs.putUInt("crc", calculated_crc);`
+- [x] `prefs.end();` schließt NVS
+- [x] Fehlerbehandlung für NVS-Öffnung hinzugefügt
+- [x] **AKTUALISIERT:** 2026-03-15 05:02 CET - saveSettings() auf NVS umgestellt
 
 #### Schritt 1.2.3: `loadSettings()` umschreiben
 - [ ] `Preferences prefs;` erstellen
