@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include "Config.h"  // Phase 4: Zentrale Konfiguration
 #include "HoverboardComm.h"  // Phase 4.3: Hoverboard UART Kommunikation
+#include "SensorManager.h"   // Phase 4.4: MPU6050 & Sensoren
 #include <ESP32Servo.h>  // Für bladeEsc
 
 /*
@@ -443,8 +444,8 @@ void statusTask(void *pvParameters);
 void controlLogicTask(void *pvParameters); // Neue Zeile hinzugefügt
 void nvsSaveTask(void *pvParameters); // Phase 1.2: NVS Speicher-Task (Wear-Leveling)
 
-//Gyro Initialization
-
+// Phase 4.4: MPU6050 Variablen (werden von SensorManager verwendet)
+// Diese bleiben in main.cpp, da sie von vielen Skills direkt genutzt werden
 MPU6050 mpu;
 
 bool dmpReady = false;  // Set true if DMP is initialized successfully

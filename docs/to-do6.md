@@ -177,11 +177,15 @@
 - [x] Build: SUCCESS
 - [x] **AKTUALISIERT:** 2026-03-15 06:15 CET
 
-#### Schritt 4.4: SensorManager.h/cpp erstellen
-- [ ] `src/SensorManager.h` erstellen
-- [ ] `src/SensorManager.cpp` erstellen
-- [ ] MPU6050 & Spannungsmessung extrahieren
-- [ ] **AKTUALISIERT:** _
+#### Schritt 4.4: SensorManager.h/cpp erstellen ✅ ERLEDIGT (Vereinfacht)
+- [x] `src/SensorManager.h` erstellt
+- [x] `src/SensorManager.cpp` erstellt
+- [x] `readBladeBatteryVoltage()` - Spannungsmessung ausgelagert
+- [x] `smoothVoltage()` - Glättungsfunktion ausgelagert
+- [x] **HINWEIS:** mpuReadTask bleibt in main.cpp (zu viele Abhängigkeiten zu Skills)
+- [x] In main.cpp eingebunden
+- [x] Build: SUCCESS
+- [x] **AKTUALISIERT:** 2026-03-15 06:25 CET
 
 #### Schritt 4.5: NetworkManager.h/cpp erstellen
 - [ ] `src/NetworkManager.h` erstellen
