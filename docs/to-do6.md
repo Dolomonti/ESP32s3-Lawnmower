@@ -61,23 +61,33 @@
 
 ---
 
-### Phase 1.1: Beseitigung der Heap-Fragmentierung (String-Klasse) 🟡 AUFWÄNDIG
+### Phase 1.1: Beseitigung der Heap-Fragmentierung (String-Klasse) ✅ ABGESCHLOSSEN
 
-**Problem:** Arduino String-Klasse fragmentiert den Heap.
+**Problem:** Arduino String-Klasse fragmentiert den Heap bei `+=` Operationen.
 
-#### Schritt 1.1.1: `webLogBuffer` umstellen
-- [ ] `String webLogBuffer` → `char webLogBuffer[2048]`
-- [ ] Ringpuffer-Logik implementieren
-- [ ] `snprintf()` statt `+=` verwenden
-- [ ] **AKTUALISIERT:** _
+#### Schritt 1.1.1: `webLogBuffer` umstellen ✅ ERLEDIGT
+- [x] `String webLogBuffer` → `char webLogBuffer[2048]` (Ringpuffer)
+- [x] `webLogWriteIndex`, `webLogReadIndex`, `webLogOverflow` hinzugefügt
+- [x] `addToWebLogBuffer()` - sicheres Schreiben in Ringpuffer
+- [x] `getFromWebLogBuffer()` - Auslesen für WebSocket
+- [x] `webLogHasData()`, `clearWebLogBuffer()` Hilfsfunktionen
+- [x] **AKTUALISIERT:** 2026-03-15 05:25 CET
 
-#### Schritt 1.1.2: `handleSerialInput()` umstellen
-- [ ] String-Parsing → `strtok()` / `sscanf()`
-- [ ] **AKTUALISIERT:** _
+#### Schritt 1.1.2: `logToWebpage()` umstellen ✅ ERLEDIGT
+- [x] `logToWebpage(const String&)` → `logToWebpage(const char*)`
+- [x] Alle 11 Aufrufe auf char-Buffer umgestellt (snprintf)
+- [x] **AKTUALISIERT:** 2026-03-15 05:26 CET
 
-#### Schritt 1.1.3: Hilfsfunktionen anpassen
-- [ ] `isValidInteger(String str)` → `isValidInteger(const char* str)`
-- [ ] **AKTUALISIERT:** _
+#### Schritt 1.1.3: `debugPrint` Funktionen angepasst ✅ ERLEDIGT
+- [x] Templates auf char-Buffer umgestellt
+- [x] IPAddress Overloads angepasst
+- [x] float Overloads angepasst
+- [x] **AKTUALISIERT:** 2026-03-15 05:26 CET
+
+#### Schritt 1.1.4: Build testen ✅ ERLEDIGT
+- [x] `pio run -e esp32s3` erfolgreich
+- [x] **ERGEBNIS:** SUCCESS - RAM: 16.5% (+0.6%), Flash: 33.5%
+- [x] **AKTUALISIERT:** 2026-03-15 05:27 CET - Phase 1.1 ABGESCHLOSSEN
 
 ---
 

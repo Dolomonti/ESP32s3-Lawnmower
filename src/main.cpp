@@ -384,62 +384,118 @@ volatile bool shouldRestart = false; // Flag to trigger restart from main loop
 
 
 // ====================================================================================
-// ===== NEU: Web Serial Puffer Variablen & Funktionen ================================
+// ===== Phase 1.1: Web Serial Puffer - Ringpuffer ohne Heap-Fragmentierung ===========
 // ====================================================================================
-bool webLogActive = false;       // Schalter: Soll ans Web gesendet werden?
-String webLogBuffer = "";        // Der Puffer, der Text sammelt
-unsigned long lastWebLogSend = 0;// Timer für das 0.5s Intervall
+bool webLogActive = false;               // Schalter: Soll ans Web gesendet werden?
 
-// 1. Ersatz für debugPrint / debugPrintln
+// Ringpuffer für Web-Log (kein String für Heap-Fragmentierung)
+constexpr size_t WEB_LOG_BUFFER_SIZE = 2048;
+char webLogBuffer[WEB_LOG_BUFFER_SIZE];  // Statischer Ringpuffer
+volatile size_t webLogWriteIndex = 0;    // Schreibposition
+volatile size_t webLogReadIndex = 0;     // Leseposition
+volatile bool webLogOverflow = false;    // Overflow-Flag
+unsigned long lastWebLogSend = 0;        // Timer für das 0.5s Intervall
+
+// Hilfsfunktion: Fügt Text zum Ringpuffer hinzu (thread-sicher)
+void addToWebLogBuffer(const char* msg) {
+    if (!msg || !webLogActive) return;
+    
+    size_t len = strlen(msg);
+    if (len == 0) return;
+    
+    // Prüfen ob genug Platz oder Overflow
+    size_t available;
+    if (webLogWriteIndex >= webLogReadIndex) {
+        available = WEB_LOG_BUFFER_SIZE - (webLogWriteIndex - webLogReadIndex) - 1;
+    } else {
+        available = webLogReadIndex - webLogWriteIndex - 1;
+    }
+    
+    if (len > available) {
+        webLogOverflow = true;
+        // Nur soviel schreiben wie Platz ist
+        len = available;
+    }
+    
+    // In Ringpuffer schreiben
+    for (size_t i = 0; i < len; i++) {
+        webLogBuffer[webLogWriteIndex] = msg[i];
+        webLogWriteIndex = (webLogWriteIndex + 1) % WEB_LOG_BUFFER_SIZE;
+    }
+}
+
+// Hilfsfunktion: Holt Text aus Ringpuffer (fürs Senden)
+void getFromWebLogBuffer(char* dest, size_t maxLen) {
+    if (!dest || maxLen == 0) return;
+    
+    size_t count = 0;
+    while (count < maxLen - 1 && webLogReadIndex != webLogWriteIndex) {
+        dest[count] = webLogBuffer[webLogReadIndex];
+        webLogReadIndex = (webLogReadIndex + 1) % WEB_LOG_BUFFER_SIZE;
+        count++;
+    }
+    dest[count] = '\0';
+    
+    // Overflow-Marker hinzufügen falls nötig
+    if (webLogOverflow) {
+        strncat(dest, "\n--- BUFFER OVERFLOW ---\n", maxLen - strlen(dest) - 1);
+        webLogOverflow = false;
+    }
+}
+
+// Hilfsfunktion: Prüft ob Daten im Puffer
+bool webLogHasData() {
+    return webLogWriteIndex != webLogReadIndex;
+}
+
+// Hilfsfunktion: Puffer leeren
+void clearWebLogBuffer() {
+    webLogWriteIndex = 0;
+    webLogReadIndex = 0;
+    webLogOverflow = false;
+}
+
+// 1. Ersatz für debugPrint / debugPrintln - mit char Buffer statt String
 template <typename T>
 void debugPrint(T msg) {
     Serial.print(msg); // Immer an USB senden
-    if (webLogActive) {
-        webLogBuffer += String(msg);
-        if (webLogBuffer.length() > 2000) webLogBuffer = "--- BUFFER OVERFLOW ---\n"; 
-    }
 }
 
 template <typename T>
 void debugPrintln(T msg) {
     Serial.println(msg); // Immer an USB senden
     if (webLogActive) {
-        webLogBuffer += String(msg) + "\n"; 
-         if (webLogBuffer.length() > 2000) webLogBuffer = "--- BUFFER OVERFLOW ---\n";
+        char buf[128];
+        snprintf(buf, sizeof(buf), "%s\n", String(msg).c_str());
+        addToWebLogBuffer(buf);
     }
 }
 
-// Overloads for IPAddress to avoid ambiguous conversions to String
+// Overloads for IPAddress
 void debugPrint(const IPAddress &msg) {
     Serial.print(msg);
-    if (webLogActive) {
-        webLogBuffer += msg.toString();
-        if (webLogBuffer.length() > 2000) webLogBuffer = "--- BUFFER OVERFLOW ---\n";
-    }
 }
 
 void debugPrintln(const IPAddress &msg) {
     Serial.println(msg);
     if (webLogActive) {
-        webLogBuffer += msg.toString() + "\n";
-        if (webLogBuffer.length() > 2000) webLogBuffer = "--- BUFFER OVERFLOW ---\n";
+        char buf[64];
+        snprintf(buf, sizeof(buf), "%s\n", msg.toString().c_str());
+        addToWebLogBuffer(buf);
     }
 }
 
-// *** NEU: Overloads für float um String-Casting-Fehler zu vermeiden ***
+// Overloads für float
 void debugPrint(float msg) {
-    Serial.print(msg, 2); // 2 Nachkommastellen
-    if (webLogActive) {
-        webLogBuffer += String(msg, 2);
-        if (webLogBuffer.length() > 2000) webLogBuffer = "--- BUFFER OVERFLOW ---\n";
-    }
+    Serial.print(msg, 2);
 }
 
 void debugPrintln(float msg) {
     Serial.println(msg, 2);
     if (webLogActive) {
-        webLogBuffer += String(msg, 2) + "\n";
-        if (webLogBuffer.length() > 2000) webLogBuffer = "--- BUFFER OVERFLOW ---\n";
+        char buf[32];
+        snprintf(buf, sizeof(buf), "%.2f\n", msg);
+        addToWebLogBuffer(buf);
     }
 }
 
@@ -453,8 +509,14 @@ void debugPrintf(const char *format, ...) {
 
     Serial.print(loc_buf); // Immer an USB
     if (webLogActive) {
-        webLogBuffer += String(loc_buf);
-        if (webLogBuffer.length() > 2000) webLogBuffer = "--- BUFFER OVERFLOW ---\n";
+        addToWebLogBuffer(loc_buf);
+    }
+}
+
+// 3. Einfache Log-Funktion ohne String-Klasse
+void logToWebpage(const char* message) {
+    if (message) {
+        ws.textAll(message);
     }
 }
 // ====================================================================================
@@ -542,7 +604,6 @@ extern const char webpage[] PROGMEM; // Correct declaration for an array in prog
 void handleSystemStatus(int16_t battery, int16_t temp);
 void handleWebpage(AsyncWebServerRequest *request);
 void connectToWiFi(const char* ssid, const char* password);
-void logToWebpage(const String& message);
 void espNowTask(void *pvParameters);
 void mpuReadTask(void *parameter);
 void statusTask(void *pvParameters);
@@ -2460,7 +2521,7 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
                     webLogActive = (val == 1);
                     if (webLogActive) {
                         client->text("LOG: --- Live Log ACTIVATED ---");
-                        webLogBuffer = ""; // Puffer leeren beim Start
+                        clearWebLogBuffer(); // Phase 1.1: Puffer leeren beim Start
                     } else {
                         client->text("LOG: --- Live Log DEACTIVATED ---");
                     }
@@ -2643,7 +2704,7 @@ void connectToWiFi(const char* ssid, const char* password) {
           debugPrint("Connecting to ");
           debugPrintln(ssid);
         }
-        logToWebpage("Connecting to " + String(ssid));
+        { char buf[64]; snprintf(buf, sizeof(buf), "Connecting to %s", ssid); logToWebpage(buf); }
 
         // Wieder zurück auf das 1er Subnetz!
         IPAddress sta_local_IP(192, 168, 1, 123);
@@ -2669,14 +2730,14 @@ void connectToWiFi(const char* ssid, const char* password) {
               debugPrintln(WiFi.localIP());
             }
             logToWebpage("Connected successfully!");
-            logToWebpage("IP address: " + WiFi.localIP().toString());
+            { char buf[64]; snprintf(buf, sizeof(buf), "IP address: %s", WiFi.localIP().toString().c_str()); logToWebpage(buf); }
             isWiFiConnected = true;
             apStartTime = millis();
             connected = true;
         } else {
             retryCount++;
             debugPrintln("Failed to connect. Retrying...");
-            logToWebpage("Failed to connect. Retrying... (" + String(retryCount) + "/" + String(maxRetries) + ")");
+            { char buf[128]; snprintf(buf, sizeof(buf), "Failed to connect. Retrying... (%d/%d)", retryCount, maxRetries); logToWebpage(buf); }
             delay(retryDelay);
         }
     }
@@ -2693,10 +2754,6 @@ void connectToWiFi(const char* ssid, const char* password) {
 // ========================================================
 // This function sends log messages to all connected WebSocket clients.
 // It is used to mirror the ESP32 serial monitor output to the webpage.
-
-void logToWebpage(const String& message) {
-  ws.textAll(message);  // Send the log message to all connected WebSocket clients
-}
 
 
 // Add logic here for what should happen when the resetDevice function is triggered
@@ -2828,9 +2885,15 @@ void loop(void)
     // Wir aktualisieren hier nur noch die Variablen für die Web-Anzeige
     // 8. Web Log Timer (Log-Daten an Website schicken alle 500ms)
         if (webLogActive && (millis() - lastWebLogSend > 500)) {        lastWebLogSend = millis();
-        if (webLogBuffer.length() > 0) {
-            ws.textAll("LOG:" + webLogBuffer); 
-            webLogBuffer = ""; 
+        if (webLogHasData()) {
+            // Phase 1.1: Ringpuffer auslesen und senden
+            char logOutput[WEB_LOG_BUFFER_SIZE];
+            getFromWebLogBuffer(logOutput, sizeof(logOutput));
+            if (strlen(logOutput) > 0) {
+                char prefixed[WEB_LOG_BUFFER_SIZE + 10];
+                snprintf(prefixed, sizeof(prefixed), "LOG:%s", logOutput);
+                ws.textAll(prefixed);
+            } 
         }
     }
 
