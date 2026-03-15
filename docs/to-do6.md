@@ -30,13 +30,14 @@
 - [x] Fehlerbehandlung für NVS-Öffnung hinzugefügt
 - [x] **AKTUALISIERT:** 2026-03-15 05:02 CET - saveSettings() auf NVS umgestellt
 
-#### Schritt 1.2.3: `loadSettings()` umschreiben
-- [ ] `Preferences prefs;` erstellen
-- [ ] `prefs.begin("mower", true);` read-only öffnen
-- [ ] `prefs.getBytes("settings", &currentSettings, sizeof(currentSettings));`
-- [ ] `prefs.getUInt("crc", 0);` für CRC-Check
-- [ ] `prefs.end();` schließen
-- [ ] **AKTUALISIERT:** _
+#### Schritt 1.2.3: `loadSettings()` umschreiben ✅ ERLEDIGT
+- [x] `Preferences prefs;` erstellt
+- [x] `prefs.begin("mower", true);` read-only geöffnet
+- [x] `prefs.getBytesLength("settings")` prüft ob Daten existieren
+- [x] `prefs.getBytes("settings", &currentSettings, sizeof(Settings));`
+- [x] `prefs.getUInt("crc", 0);` für CRC-Check
+- [x] `prefs.end();` schließt NVS
+- [x] **AKTUALISIERT:** 2026-03-15 05:05 CET - loadSettings() auf NVS umgestellt
 
 #### Schritt 1.2.4: WiFi Credentials umschreiben
 - [ ] `writeWiFiCredentialsToEEPROM()` → NVS

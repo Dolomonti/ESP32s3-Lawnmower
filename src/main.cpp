@@ -775,75 +775,92 @@ bool saveSettings() {
  */
 
 void loadSettings() {
-    // 1. Lade die Einstellungs-Struktur
-    EEPROM.get(SETTINGS_ADDR, currentSettings);
-
-    // 2. Lade den gespeicherten CRC (der direkt dahinter liegt)
-    uint32_t saved_crc;
-    EEPROM.get(SETTINGS_ADDR + sizeof(Settings), saved_crc);
-
-    // 3. Berechne den CRC der Struktur, die wir gerade geladen haben
-    uint32_t calculated_crc = esp_crc32_le(0, (uint8_t*)&currentSettings, sizeof(Settings));
-
-    // 4. Vergleiche den gespeicherten CRC mit dem neu berechneten CRC.
-    if (calculated_crc != saved_crc || currentSettings.magic != 0xDEADBEEF) {
-
-        DEBUG_LOG("EEPROM data invalid or CRC mismatch! Loading defaults.");
-
-        // *** SICHERHEIT: Struct zurücksetzen vor Default-Zuweisung ***
-        memset(&currentSettings, 0, sizeof(Settings));
-
-        // --- Set Default Values --- 
-        currentSettings.magic = 0xDEADBEEF; 
-
-        // Drive System Defaults
-        currentSettings.driveBatteryFactor = 1.0; // Korrekturwert für 37.0V
-        currentSettings.driveMinShutdownVoltage = 3100;
-        currentSettings.driveSafetyModeVoltage = 3250;
-        currentSettings.driveHighVoltage = 4300;
-        currentSettings.driveEmergencyLowTemp = 200;
-        currentSettings.driveSafetyModeTemp = 1000;
-        currentSettings.driveHighTemp = 5000;
-
-        // Blade System Defaults
-        currentSettings.bladeBatteryFactor = 6.40; // Korrekturwert für 14.84V
-        currentSettings.bladeMinShutdownVoltage = 1200;
-        currentSettings.bladeSafetyModeVoltage = 1300;
-        currentSettings.bladeHighVoltage = 1680;
-        currentSettings.bladeEmergencyLowTemp = 500;
-        currentSettings.bladeSafetyModeTemp = 1000;
-        currentSettings.bladeHighTemp = 5000;
-
-        // Speed & Steer Defaults
-        currentSettings.maxSpeed = MAX_SPEED;
-        currentSettings.maxSteer = MAX_STEER;
-        currentSettings.currentMaxSpeed = 200;
-        currentSettings.currentMaxSteer = 200;
-
-        // Blade Speeds & Reset Timing
-        currentSettings.bladeWorkingSpeed = 1600;
-        currentSettings.bladeStage2Speed = 1700;
-        currentSettings.bladeMaxSpeed = 1800;
-        currentSettings.bladeCableResetRpm = 1800;
-        currentSettings.bladeResetRampS = 3;      
-        currentSettings.bladeResetDurationS = 1;  
-
-        // Capsize Settings
-        currentSettings.capsizeAngle = 60.0;
-        currentSettings.capsizeTimeout = 1500;
-
-        // PD-Gains
-        currentSettings.Kp = 4.0;
-        currentSettings.Kd = 1.5;
-
-        currentSettings.apiKey[0] = '\0'; // Init API Key empty
-
-        // Speichere die neuen Standardwerte
-        if (!saveSettings()) {
-            DEBUG_LOG("ERROR: Failed to save default settings to EEPROM!");
+    // Phase 1.2: Umstellung auf Preferences (NVS)
+    Preferences prefs;
+    
+    // 1. NVS öffnen (read-only für Lesezugriff)
+    if (!prefs.begin("mower", true)) {
+        DEBUG_LOG("ERROR: Failed to open NVS namespace for reading!");
+        // Fallback: Defaults laden
+    }
+    
+    // 2. Prüfen ob Settings existieren
+    size_t settingsLen = prefs.getBytesLength("settings");
+    
+    if (settingsLen == sizeof(Settings)) {
+        // Settings existieren, laden
+        prefs.getBytes("settings", &currentSettings, sizeof(Settings));
+        
+        // 3. CRC laden und prüfen
+        uint32_t saved_crc = prefs.getUInt("crc", 0);
+        uint32_t calculated_crc = esp_crc32_le(0, (uint8_t*)&currentSettings, sizeof(Settings));
+        
+        prefs.end(); // NVS schließen
+        
+        // 4. CRC und Magic prüfen
+        if (calculated_crc == saved_crc && currentSettings.magic == 0xDEADBEEF) {
+            DEBUG_LOG("Successfully loaded settings from NVS (CRC OK).");
+            return; // Alles OK
         }
-    } else {
-        DEBUG_LOG("Successfully loaded settings from EEPROM (CRC OK).");
+    }
+    
+    // NVS schließen falls noch offen
+    prefs.end();
+    
+    // 5. CRC ungültig oder keine Daten -> Defaults laden
+    DEBUG_LOG("NVS data invalid or not found! Loading defaults.");
+    
+    // *** SICHERHEIT: Struct zurücksetzen vor Default-Zuweisung ***
+    memset(&currentSettings, 0, sizeof(Settings));
+
+    // --- Set Default Values --- 
+    currentSettings.magic = 0xDEADBEEF; 
+
+    // Drive System Defaults
+    currentSettings.driveBatteryFactor = 1.0;
+    currentSettings.driveMinShutdownVoltage = 3100;
+    currentSettings.driveSafetyModeVoltage = 3250;
+    currentSettings.driveHighVoltage = 4300;
+    currentSettings.driveEmergencyLowTemp = 200;
+    currentSettings.driveSafetyModeTemp = 1000;
+    currentSettings.driveHighTemp = 5000;
+
+    // Blade System Defaults
+    currentSettings.bladeBatteryFactor = 6.40;
+    currentSettings.bladeMinShutdownVoltage = 1200;
+    currentSettings.bladeSafetyModeVoltage = 1300;
+    currentSettings.bladeHighVoltage = 1680;
+    currentSettings.bladeEmergencyLowTemp = 500;
+    currentSettings.bladeSafetyModeTemp = 1000;
+    currentSettings.bladeHighTemp = 5000;
+
+    // Speed & Steer Defaults
+    currentSettings.maxSpeed = MAX_SPEED;
+    currentSettings.maxSteer = MAX_STEER;
+    currentSettings.currentMaxSpeed = 200;
+    currentSettings.currentMaxSteer = 200;
+
+    // Blade Speeds & Reset Timing
+    currentSettings.bladeWorkingSpeed = 1600;
+    currentSettings.bladeStage2Speed = 1700;
+    currentSettings.bladeMaxSpeed = 1800;
+    currentSettings.bladeCableResetRpm = 1800;
+    currentSettings.bladeResetRampS = 3;      
+    currentSettings.bladeResetDurationS = 1;  
+
+    // Capsize Settings
+    currentSettings.capsizeAngle = 60.0;
+    currentSettings.capsizeTimeout = 1500;
+
+    // PD-Gains
+    currentSettings.Kp = 4.0;
+    currentSettings.Kd = 1.5;
+
+    currentSettings.apiKey[0] = '\0';
+
+    // Speichere die neuen Standardwerte
+    if (!saveSettings()) {
+        DEBUG_LOG("ERROR: Failed to save default settings to NVS!");
     }
 }
 
