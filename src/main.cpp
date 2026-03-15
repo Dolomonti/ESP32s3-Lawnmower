@@ -134,8 +134,8 @@ WiFiWebServer by Khoi Hoang (Version 1.10.1)
 #define BLADE_DOWN_PIN           36          // Example GPIO pin for blade down
 #define EMERGENCY_STOP_PIN       15            // GPIO pin for the emergency stop button
 #define BLADE_BATTERY_PIN            1         // to measure the minus pole of the 4S battery and have multiple resistors inbetween!
-#define BLADE_UNIT_PIN               20        // Power Pin für Blade Unit
-#define DRIVE_UNIT_PIN               20        // Power Pin für Drive Unit
+#define BLADE_UNIT_PIN               19        // Power Pin für Blade Unit (GPIO 19)
+#define DRIVE_UNIT_PIN               20        // Power Pin für Drive Unit (GPIO 20)
 
 
 #include <ESP32Servo.h>
@@ -157,6 +157,57 @@ constexpr float CAPSIZE_THRESHOLD_ROLL = 60.0f;
 
 // --- PD-Controller Constants ---
 constexpr float PD_ERROR_THRESHOLD = 2.0f;  // Target reached threshold in degrees
+
+// --- Skill System Constants (Phase 2 Refactoring) ---
+// Turn angles for automated movements
+constexpr float TURN_ANGLE_90 = 90.0f;
+constexpr float TURN_ANGLE_180 = 180.0f;
+
+// Blade control key codes (Skill 6)
+constexpr int16_t PWM_WEB_OFFSET = 20000;      // Base offset for web PWM values
+constexpr int16_t PWM_WEB_MIN = 21000;         // Minimum web PWM key
+constexpr int16_t PWM_WEB_MAX = 22000;         // Maximum web PWM key
+constexpr int16_t KEY_BLADE_SPEED1 = 25600;    // Activate working speed
+constexpr int16_t KEY_BLADE_SPEED1_ALT = 2;    // Alternative for speed 1
+constexpr int16_t KEY_BLADE_SPEED2 = 26500;    // Activate stage 2 speed
+constexpr int16_t KEY_BLADE_SPEED2_ALT = 3;    // Alternative for speed 2
+
+// Skill 8 config modes
+constexpr int16_t CONFIG_MODE_ANGLE = 1000;    // Set capsize angle
+constexpr int16_t CONFIG_MODE_TIMEOUT = 1001;  // Set capsize timeout
+
+// Skill 11 minimum RPM threshold
+constexpr int16_t MIN_RPM_THRESHOLD = 1000;    // Minimum RPM for cable reset
+
+// --- Skill System Enums (Phase 4 Refactoring) ---
+enum SkillCode : uint8_t {
+    SKILL_NONE = 0,
+    SKILL_RESET = 1,
+    SKILL_TURN_90 = 2,
+    SKILL_HOLD_LINE = 3,
+    SKILL_TURN_180 = 4,
+    SKILL_BLADE_LIFT = 5,
+    SKILL_BLADE_CONTROL = 6,
+    SKILL_SET_LIMITS = 7,
+    SKILL_ESTOP = 8,
+    SKILL_REBOOT = 9,
+    SKILL_SET_BLADE_SPEEDS = 10,
+    SKILL_CABLE_RESET = 11,
+    SKILL_DRIVE_LEVELS = 12,
+    SKILL_BLADE_LEVELS = 13,
+    SKILL_CAPSIZE_PARAMS = 14,
+    SKILL_PD_GAINS = 15,
+    SKILL_BLADE_BATTERY_FACTOR = 16,
+    SKILL_DRIVE_BATTERY_FACTOR = 17,
+    SKILL_DRIVE_POWER = 18,
+    SKILL_HOVERBOARD_PARAMS = 19,
+    SKILL_DISTANCE_MISSION = 20,
+    SKILL_HEARTBEAT = 255
+};
+
+// Blade control sub-commands
+constexpr int16_t BLADE_OFF_CMD = -1;
+constexpr int16_t BLADE_ON_CMD = 1;
 
 // --- Debug Logging Macro (Phase 3.2) ---
 // Usage: DEBUG_LOG("Message"); or DEBUG_PRINTF("Value: %d\n", val);
@@ -481,7 +532,7 @@ PeerInfo peers[numberOfPeers]; // Array to track each peer's state
 
 
 // Function prototypes
-void saveSettings();
+bool saveSettings();
 void loadSettings();
 void monitorDirectionChange(float yaw);
 void holdTheLine(float yaw);
@@ -691,7 +742,7 @@ void managePeers() {
 /**
  * @brief Saves the current settings structure AND a CRC32 checksum to EEPROM.
  */
-void saveSettings() {
+bool saveSettings() {
     // 1. Berechne den CRC32 der Einstellungs-Struktur
     uint32_t calculated_crc = esp_crc32_le(0, (uint8_t*)&currentSettings, sizeof(Settings));
 
@@ -704,8 +755,10 @@ void saveSettings() {
     // 4. Änderungen bestätigen
     if (EEPROM.commit()) {
         DEBUG_LOG("Settings and CRC successfully saved to EEPROM.");
+        return true;
     } else {
-        DEBUG_LOG("Error saving settings to EEPROM.");
+        DEBUG_LOG("ERROR: Failed to save settings to EEPROM!");
+        return false;
     }
 }
 /**
@@ -789,14 +842,42 @@ void loadSettings() {
 /////////////////////////TRIGGER SKILLS Logic//////////////////////////////////////////////
 
 // ---------------------------------------------------------------------
+// Forward Declarations (für normalizeAngle in Skill 2, 4)
+// ---------------------------------------------------------------------
+inline float normalizeAngle(float angle);
+
+// ---------------------------------------------------------------------
+// Helper Functions (Phase 4b Refactoring)
+// ---------------------------------------------------------------------
+
+/**
+ * @brief Stoppt das Messer sicher und protokolliert den Grund
+ * @param reason Grund für das Stoppen (für Debug-Log)
+ */
+inline void stopBladeSafely(const char* reason) {
+    currentBladeState = BLADE_OFF;
+    digitalWrite(BLADE_UNIT_PIN, LOW);
+    current_blade_pwm = BLADE_ZERO_US;
+    DEBUG_PRINTF("Blade stopped: %s\n", reason);
+}
+
+/**
+ * @brief Prüft ob das Messer aktiviert werden darf
+ * @return true wenn Messer unten (BLADE_HEIGHT_DOWN), sonst false
+ */
+inline bool bladeAllowed() {
+    return (currentBladeHeight == BLADE_HEIGHT_DOWN);
+}
+
+// ---------------------------------------------------------------------
 // Sub-Handler 1: Drive & Movement Skills (0, 1, 2, 3, 4, 20)
 // ---------------------------------------------------------------------
 void handleDriveSkills(uint8_t skill, int16_t param1, int16_t param2, int16_t param3, int16_t param4, int16_t param5, int16_t param6) {
     switch (skill) {
-        case 0:
+        case SKILL_NONE:
             DEBUG_LOG("Skill 0: undefined placeholder.");
             break;
-        case 1:
+        case SKILL_RESET:
             DEBUG_LOG("Skill 1: Full System Stop & Reset Triggered.");
             resetAll();
             resetHorizon();
@@ -810,18 +891,17 @@ void handleDriveSkills(uint8_t skill, int16_t param1, int16_t param2, int16_t pa
             }
             hoverboardInverted = false;
             break;
-        case 2:
+        case SKILL_TURN_90:
             if (!skill8Active) { DEBUG_LOG("Skill 2 cannot be activated: Capsize protection (Skill 8) is not active."); break; }
             resetAll(); resetHorizon();
             input_EspNowSpeed = 0;
             skillActive = true; currentCase = 2;
-            if (param1 > 0) { targetAngle = + 90.0; turnDirection = 1; DEBUG_LOG("Skill 2: 90-degree turn RIGHT triggered!"); }
-            else if (param1 < 0) { targetAngle = - 90.0; turnDirection = -1; DEBUG_LOG("Skill 2: 90-degree turn LEFT triggered!"); }
-            if (targetAngle > 180) targetAngle -= 360;
-            if (targetAngle < -180) targetAngle += 360;
+            if (param1 > 0) { targetAngle = TURN_ANGLE_90; turnDirection = 1; DEBUG_LOG("Skill 2: 90-degree turn RIGHT triggered!"); }
+            else if (param1 < 0) { targetAngle = -TURN_ANGLE_90; turnDirection = -1; DEBUG_LOG("Skill 2: 90-degree turn LEFT triggered!"); }
+            targetAngle = normalizeAngle(targetAngle);
             monitorDirection = true;
             break;
-        case 3:
+        case SKILL_HOLD_LINE:
             if (!skill8Active) { DEBUG_LOG("Skill 3 cannot be activated: Capsize protection (Skill 8) is not active."); break; }
             if (holdLine) {
                 resetAll();
@@ -832,18 +912,17 @@ void handleDriveSkills(uint8_t skill, int16_t param1, int16_t param2, int16_t pa
                 DEBUG_LOG("Skill 3: Activated (holding the line).");
             }
             break;
-        case 4:
+        case SKILL_TURN_180:
             if (!skill8Active) { DEBUG_LOG("Skill 4 cannot be activated: Capsize protection (Skill 8) is not active."); break; }
             resetAll(); resetHorizon();
             input_EspNowSpeed = 0;
             skillActive = true; currentCase = 4;
-            if (param1 > 0) { targetAngle = + 180.0; turnDirection = 1; DEBUG_LOG("Skill 4: 180-degree turn RIGHT triggered!"); }
-            else if (param1 < 0) { targetAngle = - 180.0; turnDirection = -1; DEBUG_LOG("Skill 4: 180-degree turn LEFT triggered!"); }
-            if (targetAngle > 180) targetAngle -= 360;
-            if (targetAngle < -180) targetAngle += 360;
+            if (param1 > 0) { targetAngle = TURN_ANGLE_180; turnDirection = 1; DEBUG_LOG("Skill 4: 180-degree turn RIGHT triggered!"); }
+            else if (param1 < 0) { targetAngle = -TURN_ANGLE_180; turnDirection = -1; DEBUG_LOG("Skill 4: 180-degree turn LEFT triggered!"); }
+            targetAngle = normalizeAngle(targetAngle);
             monitorDirection = true;
             break;
-        case 20:
+        case SKILL_DISTANCE_MISSION:
             resetMissionFlags = true;
             input_JoySteer = 0;
             input_JoySpeed = 0;
@@ -875,48 +954,102 @@ void handleBladeSkills(uint8_t skill, int16_t param1, int16_t param2, int16_t pa
     switch (skill) {
         case 5:
             if (param1 > 0) {
-                digitalWrite(BLADE_DOWN_PIN, LOW); digitalWrite(BLADE_UP_PIN, HIGH); currentBladeHeight = BLADE_HEIGHT_UP;
-                currentBladeState = BLADE_OFF; digitalWrite(BLADE_UNIT_PIN, LOW); bladeEsc.writeMicroseconds(BLADE_ZERO_US);
+                // Blade UP
+                digitalWrite(BLADE_DOWN_PIN, LOW);
+                digitalWrite(BLADE_UP_PIN, HIGH);
+                currentBladeHeight = BLADE_HEIGHT_UP;
+                currentBladeState = BLADE_OFF;
+                digitalWrite(BLADE_UNIT_PIN, LOW);
+                bladeEsc.writeMicroseconds(BLADE_ZERO_US);
                 DEBUG_LOG("Skill 5: Blade UP (Pin 35 HIGH) - forcing Blade OFF for safety.");
             } else if (param1 < 0) {
-                digitalWrite(BLADE_UP_PIN, LOW); digitalWrite(BLADE_DOWN_PIN, HIGH); currentBladeHeight = BLADE_HEIGHT_DOWN;
+                // Blade DOWN
+                digitalWrite(BLADE_UP_PIN, LOW);
+                digitalWrite(BLADE_DOWN_PIN, HIGH);
+                currentBladeHeight = BLADE_HEIGHT_DOWN;
                 DEBUG_LOG("Skill 5: Blade DOWN (Pin 36 HIGH).");
             } else {
-                digitalWrite(BLADE_UP_PIN, LOW); digitalWrite(BLADE_DOWN_PIN, LOW);
+                // Stop blade movement
+                digitalWrite(BLADE_UP_PIN, LOW);
+                digitalWrite(BLADE_DOWN_PIN, LOW);
                 DEBUG_LOG("Skill 5: Blade Height STOP (Pins LOW).");
             }
             break;
-        case 6: {
-            uint16_t rawKey = (uint16_t)param1; int16_t key = (int16_t)param1;
-            auto bladeAllowed = []() -> bool { return (currentBladeHeight == BLADE_HEIGHT_DOWN); };
-            if (key == -1) {
-                currentBladeState = BLADE_OFF; digitalWrite(BLADE_UNIT_PIN, LOW); current_blade_pwm = BLADE_ZERO_US;
-                DEBUG_LOG("Skill 6: Blade Unit OFF (Pin 19 LOW)");
-            } else if (key == 1) {
-                if (bladeAllowed()) { currentBladeState = BLADE_WORK; digitalWrite(BLADE_UNIT_PIN, HIGH); current_blade_pwm = BLADE_ZERO_US; DEBUG_LOG("Skill 6: Blade Unit ON (Pin 19 HIGH)"); }
-                else { currentBladeState = BLADE_OFF; digitalWrite(BLADE_UNIT_PIN, LOW); current_blade_pwm = BLADE_ZERO_US; DEBUG_LOG("Skill 6: Blade ON blocked - blade is UP (safety)"); }
-            } else if (key >= 21000 && key <= 22000) {
-                if (bladeAllowed()) { currentBladeState = BLADE_WORK; current_blade_pwm = key - 20000; DEBUG_PRINTF("Skill 6: Web-PWM-> %d PWM\n", current_blade_pwm); }
-                else { currentBladeState = BLADE_OFF; digitalWrite(BLADE_UNIT_PIN, LOW); current_blade_pwm = BLADE_ZERO_US; DEBUG_LOG("Skill 6: Web-PWM blocked - blade is UP (safety)"); }
-            } else if (key == 25600 || key == 2) {
-                if (bladeAllowed()) { currentBladeState = BLADE_WORK; current_blade_pwm = currentSettings.bladeWorkingSpeed; DEBUG_PRINTF("Skill 6: Blade Speed 1 -> %d PWM\n", current_blade_pwm); }
-                else { currentBladeState = BLADE_OFF; digitalWrite(BLADE_UNIT_PIN, LOW); current_blade_pwm = BLADE_ZERO_US; DEBUG_LOG("Skill 6: Blade Speed 1 blocked - blade is UP (safety)"); }
-            } else if (key == 26500 || key == 3) {
-                if (bladeAllowed()) { currentBladeState = BLADE_WORK; current_blade_pwm = currentSettings.bladeStage2Speed; DEBUG_PRINTF("Skill 6: Blade Speed 2 -> %d PWM\n", current_blade_pwm); }
-                else { currentBladeState = BLADE_OFF; digitalWrite(BLADE_UNIT_PIN, LOW); current_blade_pwm = BLADE_ZERO_US; DEBUG_LOG("Skill 6: Blade Speed 2 blocked - blade is UP (safety)"); }
+        case SKILL_BLADE_CONTROL: {
+            // Blade control: param1/key determines action
+            int16_t key = param1;
+            
+            if (key == BLADE_OFF_CMD) {
+                // Blade OFF
+                stopBladeSafely("Skill 6: Blade Unit OFF (Pin 19 LOW)");
+            } 
+            else if (key == BLADE_ON_CMD) {
+                // Blade ON
+                if (bladeAllowed()) {
+                    currentBladeState = BLADE_WORK;
+                    digitalWrite(BLADE_UNIT_PIN, HIGH);
+                    current_blade_pwm = BLADE_ZERO_US;
+                    DEBUG_LOG("Skill 6: Blade Unit ON (Pin 19 HIGH)");
+                } else {
+                    stopBladeSafely("Skill 6: Blade ON blocked - blade is UP (safety)");
+                }
+            } 
+            else if (key >= PWM_WEB_MIN && key <= PWM_WEB_MAX) {
+                // Web PWM control (21000-22000 maps to 1000-2000 PWM)
+                int16_t pwmValue = key - PWM_WEB_OFFSET;
+                // Validate PWM range (1000-2000 microseconds)
+                if (pwmValue < 1000 || pwmValue > 2000) {
+                    DEBUG_PRINTF("ERROR: PWM value %d out of valid range (1000-2000)\n", pwmValue);
+                    stopBladeSafely("Skill 6: PWM out of range");
+                } else if (bladeAllowed()) {
+                    currentBladeState = BLADE_WORK;
+                    current_blade_pwm = pwmValue;
+                    DEBUG_PRINTF("Skill 6: Web-PWM-> %d PWM\n", current_blade_pwm);
+                } else {
+                    stopBladeSafely("Skill 6: Web-PWM blocked - blade is UP (safety)");
+                }
+            } 
+            else if (key == KEY_BLADE_SPEED1 || key == KEY_BLADE_SPEED1_ALT) {
+                // Blade Speed 1 (Working speed)
+                if (bladeAllowed()) {
+                    currentBladeState = BLADE_WORK;
+                    current_blade_pwm = currentSettings.bladeWorkingSpeed;
+                    DEBUG_PRINTF("Skill 6: Blade Speed 1 -> %d PWM\n", current_blade_pwm);
+                } else {
+                    stopBladeSafely("Skill 6: Blade Speed 1 blocked - blade is UP (safety)");
+                }
+            } 
+            else if (key == KEY_BLADE_SPEED2 || key == KEY_BLADE_SPEED2_ALT) {
+                // Blade Speed 2 (Stage 2 speed)
+                if (bladeAllowed()) {
+                    currentBladeState = BLADE_WORK;
+                    current_blade_pwm = currentSettings.bladeStage2Speed;
+                    DEBUG_PRINTF("Skill 6: Blade Speed 2 -> %d PWM\n", current_blade_pwm);
+                } else {
+                    stopBladeSafely("Skill 6: Blade Speed 2 blocked - blade is UP (safety)");
+                }
             }
             break;
         }
-        case 10:
-            currentSettings.bladeWorkingSpeed = param1; currentSettings.bladeStage2Speed = param2; currentSettings.bladeMaxSpeed = param3; currentSettings.bladeCableResetRpm = param4; saveSettings();
-            DEBUG_PRINTF("Skill 10: Blade speeds updated - Zero: %d, Working pwm: %d, 2 Stage pwm: %d, Max pwm: %d, Reset pwm: %d\n", BLADE_ZERO_US, currentSettings.bladeWorkingSpeed, currentSettings.bladeStage2Speed, currentSettings.bladeMaxSpeed, currentSettings.bladeCableResetRpm);
+        case SKILL_SET_BLADE_SPEEDS:
+            currentSettings.bladeWorkingSpeed = param1;
+            currentSettings.bladeStage2Speed = param2;
+            currentSettings.bladeMaxSpeed = param3;
+            currentSettings.bladeCableResetRpm = param4;
+            saveSettings();
+            DEBUG_PRINTF("Skill 10: Blade speeds updated - Zero: %d, Working pwm: %d, 2 Stage pwm: %d, Max pwm: %d, Reset pwm: %d\n",
+                         BLADE_ZERO_US, currentSettings.bladeWorkingSpeed, currentSettings.bladeStage2Speed,
+                         currentSettings.bladeMaxSpeed, currentSettings.bladeCableResetRpm);
             break;
-        case 11:
+        case SKILL_CABLE_RESET:
             DEBUG_LOG("Skill 11: Reset triggered. Stopping blade and starting sequence...");
-            current_blade_pwm = BLADE_ZERO_US; bladeEsc.writeMicroseconds(BLADE_ZERO_US);
-            currentBladeState = BLADE_CABLE_RESET; bladeSequenceStartTime = millis();
-            if (param1 > 1000) currentSettings.bladeCableResetRpm = param1;
-            DEBUG_PRINTF("Skill 11: Blade Reset Sequence started. Target: %d PWM\n", currentSettings.bladeCableResetRpm);
+            current_blade_pwm = BLADE_ZERO_US;
+            bladeEsc.writeMicroseconds(BLADE_ZERO_US);
+            currentBladeState = BLADE_CABLE_RESET;
+            bladeSequenceStartTime = millis();
+            if (param1 > MIN_RPM_THRESHOLD) currentSettings.bladeCableResetRpm = param1;
+            DEBUG_PRINTF("Skill 11: Blade Reset Sequence started. Target: %d PWM\n",
+                         currentSettings.bladeCableResetRpm);
             break;
     }
 }
@@ -926,68 +1059,179 @@ void handleBladeSkills(uint8_t skill, int16_t param1, int16_t param2, int16_t pa
 // ---------------------------------------------------------------------
 void handleSetupSkills(uint8_t skill, int16_t param1, int16_t param2, int16_t param3, int16_t param4, int16_t param5, int16_t param6) {
     switch (skill) {
-        case 7:
+        case SKILL_SET_LIMITS:
             if (param3 > 0) currentSettings.currentMaxSpeed = constrain(param3, 0, MAX_SPEED);
             if (param2 > 0) currentSettings.currentMaxSteer = constrain(param2, 0, MAX_STEER);
-            saveSettings();
+            if (!saveSettings()) {
+                DEBUG_LOG("ERROR: Skill 7 - Failed to save speed/steer limits!");
+            }
             DEBUG_PRINTF("Skill 7: Updated currentMaxSpeed to %d and currentMaxSteer to %d\n", currentSettings.currentMaxSpeed, currentSettings.currentMaxSteer);
             break;
-        case 8:
-            if (param1 == 1000) { currentSettings.capsizeAngle = (float)param2; saveSettings(); DEBUG_PRINTF("Skill 8: Capsize Angle set to %.2f degrees.\n", currentSettings.capsizeAngle); return; }
-            if (param1 == 1001) { currentSettings.capsizeTimeout = param2; saveSettings(); DEBUG_PRINTF("Skill 8: Capsize Timeout set to %d ms.\n", currentSettings.capsizeTimeout); return; }
+        case SKILL_ESTOP:
+            // Config mode: Set capsize angle (param1=CONFIG_MODE_ANGLE)
+            if (param1 == CONFIG_MODE_ANGLE) {
+                currentSettings.capsizeAngle = (float)param2;
+                if (!saveSettings()) {
+                    DEBUG_LOG("ERROR: Skill 8 - Failed to save capsize angle!");
+                }
+                DEBUG_PRINTF("Skill 8: Capsize Angle set to %.2f degrees.\n", currentSettings.capsizeAngle);
+                return;
+            }
+            // Config mode: Set capsize timeout (param1=CONFIG_MODE_TIMEOUT)
+            if (param1 == CONFIG_MODE_TIMEOUT) {
+                currentSettings.capsizeTimeout = param2;
+                if (!saveSettings()) {
+                    DEBUG_LOG("ERROR: Skill 8 - Failed to save capsize timeout!");
+                }
+                DEBUG_PRINTF("Skill 8: Capsize Timeout set to %d ms.\n", currentSettings.capsizeTimeout);
+                return;
+            }
 
             if (param1 == 20) {
-                resetAll(); digitalWrite(BLADE_UNIT_PIN, LOW); digitalWrite(DRIVE_UNIT_PIN, LOW);
-                currentBladeState = BLADE_OFF; bladeEsc.writeMicroseconds(BLADE_ZERO_US); skill8SafetyActive = true;
-                static unsigned long lastEstopPrint = 0; unsigned long now = millis();
-                if (now - lastEstopPrint > 2000) { DEBUG_LOG("--> IMMEDIATE EMERGENCY STOP TRIGGERED <--"); lastEstopPrint = now; }
+                // Emergency stop trigger
+                resetAll();
+                digitalWrite(BLADE_UNIT_PIN, LOW);
+                digitalWrite(DRIVE_UNIT_PIN, LOW);
+                currentBladeState = BLADE_OFF;
+                bladeEsc.writeMicroseconds(BLADE_ZERO_US);
+                skill8SafetyActive = true;
+                static unsigned long lastEstopPrint = 0;
+                unsigned long now = millis();
+                if (now - lastEstopPrint > 2000) {
+                    DEBUG_LOG("--> IMMEDIATE EMERGENCY STOP TRIGGERED <--");
+                    lastEstopPrint = now;
+                }
             } else if (param1 > 0) {
-                if (!skill8Active) { resetAll(); skill8Active = true; DEBUG_LOG("Skill 8: Activated (Capsize MPU monitoring started)."); }
+                // Activate capsize monitoring
+                if (!skill8Active) {
+                    resetAll();
+                    skill8Active = true;
+                    DEBUG_LOG("Skill 8: Activated (Capsize MPU monitoring started).");
+                }
             } else if (param1 == -20) {
+                // Reset/stop command
                 DEBUG_LOG("Stop/Reset command received: Stopping skills, resetting horizon, clearing E-Stop.");
-                resetAll(); resetHorizon();
-                if (skill8SafetyActive) { skill8SafetyActive = false; DEBUG_LOG("--> Emergency Stop state has been cleared."); }
+                resetAll();
+                resetHorizon();
+                if (skill8SafetyActive) {
+                    skill8SafetyActive = false;
+                    DEBUG_LOG("--> Emergency Stop state has been cleared.");
+                }
             } else if (param1 < 0) {
-                if (skill8Active) { skill8Active = false; hoverboardInverted = false; skill8SafetyActive = false; DEBUG_LOG("Skill 8: Deactivated (Capsize MPU monitoring stopped)."); }
+                // Deactivate capsize monitoring
+                if (skill8Active) {
+                    skill8Active = false;
+                    hoverboardInverted = false;
+                    skill8SafetyActive = false;
+                    DEBUG_LOG("Skill 8: Deactivated (Capsize MPU monitoring stopped).");
+                }
             } else {
                 DEBUG_LOG("Skill 8: Undefined command, requires a non-zero value.");
             }
             break;
-        case 9:
+        case SKILL_REBOOT:
             DEBUG_LOG("Skill 9 triggered via Webpage. Restarting ESP32...");
             ESP.restart();
             break;
-        case 12:
-            currentSettings.driveMinShutdownVoltage = param1; currentSettings.driveSafetyModeVoltage = param2; currentSettings.driveHighVoltage = param3; currentSettings.driveEmergencyLowTemp = param4; currentSettings.driveSafetyModeTemp = param5; currentSettings.driveHighTemp = param6; saveSettings();
-            DEBUG_PRINTF("Skill 12: Drive settings updated - V: %d, %d, %d | Temp: %d, %d, %d\n", currentSettings.driveMinShutdownVoltage, currentSettings.driveSafetyModeVoltage, currentSettings.driveHighVoltage, currentSettings.driveEmergencyLowTemp, currentSettings.driveSafetyModeTemp, currentSettings.driveHighTemp);
-            break;
-        case 13:
-            currentSettings.bladeMinShutdownVoltage = param1; currentSettings.bladeSafetyModeVoltage = param2; currentSettings.bladeHighVoltage = param3; currentSettings.bladeEmergencyLowTemp = param4; currentSettings.bladeSafetyModeTemp = param5; currentSettings.bladeHighTemp = param6; saveSettings();
-            DEBUG_PRINTF("Skill 13: Blade settings updated - V: %d, %d, %d | Temp: %d, %d, %d\n", currentSettings.bladeMinShutdownVoltage, currentSettings.bladeSafetyModeVoltage, currentSettings.bladeHighVoltage, currentSettings.bladeEmergencyLowTemp, currentSettings.bladeSafetyModeTemp, currentSettings.bladeHighTemp);
-            break;
-        case 14:
-            currentSettings.capsizeAngle = (float)param1; currentSettings.capsizeTimeout = param2; saveSettings();
-            DEBUG_PRINTF("Skill 14: Capsize parameters updated - Angle: %.2f, Timeout: %d\n", currentSettings.capsizeAngle, currentSettings.capsizeTimeout);
-            break;
-        case 15:
-            if (param1 > 0) currentSettings.Kp = (float)param1 / 100.0f;
-            if (param2 > 0) currentSettings.Kd = (float)param2 / 100.0f;
+        case SKILL_DRIVE_LEVELS:
+            currentSettings.driveMinShutdownVoltage = param1;
+            currentSettings.driveSafetyModeVoltage = param2;
+            currentSettings.driveHighVoltage = param3;
+            currentSettings.driveEmergencyLowTemp = param4;
+            currentSettings.driveSafetyModeTemp = param5;
+            currentSettings.driveHighTemp = param6;
             saveSettings();
+            DEBUG_PRINTF("Skill 12: Drive settings updated - V: %d, %d, %d | Temp: %d, %d, %d\n",
+                         currentSettings.driveMinShutdownVoltage, currentSettings.driveSafetyModeVoltage,
+                         currentSettings.driveHighVoltage, currentSettings.driveEmergencyLowTemp,
+                         currentSettings.driveSafetyModeTemp, currentSettings.driveHighTemp);
+            break;
+        case SKILL_BLADE_LEVELS:
+            currentSettings.bladeMinShutdownVoltage = param1;
+            currentSettings.bladeSafetyModeVoltage = param2;
+            currentSettings.bladeHighVoltage = param3;
+            currentSettings.bladeEmergencyLowTemp = param4;
+            currentSettings.bladeSafetyModeTemp = param5;
+            currentSettings.bladeHighTemp = param6;
+            saveSettings();
+            DEBUG_PRINTF("Skill 13: Blade settings updated - V: %d, %d, %d | Temp: %d, %d, %d\n",
+                         currentSettings.bladeMinShutdownVoltage, currentSettings.bladeSafetyModeVoltage,
+                         currentSettings.bladeHighVoltage, currentSettings.bladeEmergencyLowTemp,
+                         currentSettings.bladeSafetyModeTemp, currentSettings.bladeHighTemp);
+            break;
+        case SKILL_CAPSIZE_PARAMS:
+            currentSettings.capsizeAngle = (float)param1;
+            currentSettings.capsizeTimeout = param2;
+            saveSettings();
+            DEBUG_PRINTF("Skill 14: Capsize parameters updated - Angle: %.2f, Timeout: %d\n",
+                         currentSettings.capsizeAngle, currentSettings.capsizeTimeout);
+            break;
+        case SKILL_PD_GAINS:
+            // Validate PD gains (reasonable range: 0.01 to 10.0)
+            if (param1 > 0) {
+                float kp = (float)param1 / 100.0f;
+                if (kp > 10.0f) {
+                    DEBUG_PRINTF("WARNING: Kp %.2f exceeds max 10.0, clamping.\n", kp);
+                    kp = 10.0f;
+                }
+                currentSettings.Kp = kp;
+            }
+            if (param2 > 0) {
+                float kd = (float)param2 / 100.0f;
+                if (kd > 10.0f) {
+                    DEBUG_PRINTF("WARNING: Kd %.2f exceeds max 10.0, clamping.\n", kd);
+                    kd = 10.0f;
+                }
+                currentSettings.Kd = kd;
+            }
+            if (!saveSettings()) {
+                DEBUG_LOG("ERROR: Skill 15 - Failed to save PD gains!");
+            }
             DEBUG_PRINTF("Skill 15: PD-Regler aktualisiert - Kp: %.2f, Kd: %.2f\n", currentSettings.Kp, currentSettings.Kd);
             break;
-        case 16:
-            if (param1 > 0) { currentSettings.bladeBatteryFactor = (float)param1 / 100.0; saveSettings(); DEBUG_PRINTF("Neuer Blade Batterie Faktor: %.2f\n", currentSettings.bladeBatteryFactor); }
+        case SKILL_BLADE_BATTERY_FACTOR:
+            if (param1 > 0) {
+                float factor = (float)param1 / 100.0f;
+                // Validate factor (reasonable range: 1.0 to 50.0)
+                if (factor < 1.0f || factor > 50.0f) {
+                    DEBUG_PRINTF("WARNING: Blade battery factor %.2f outside valid range (1.0-50.0)\n", factor);
+                }
+                currentSettings.bladeBatteryFactor = factor;
+                if (!saveSettings()) {
+                    DEBUG_LOG("ERROR: Skill 16 - Failed to save blade battery factor!");
+                }
+                DEBUG_PRINTF("Neuer Blade Batterie Faktor: %.2f\n", currentSettings.bladeBatteryFactor);
+            }
             break;
-        case 17:
-            if (param1 > 0) { currentSettings.driveBatteryFactor = (float)param1 / 1000.0; saveSettings(); DEBUG_PRINTF("Neuer Drive Faktor: %.3f\n", currentSettings.driveBatteryFactor); }
+        case SKILL_DRIVE_BATTERY_FACTOR:
+            if (param1 > 0) {
+                float factor = (float)param1 / 1000.0f;
+                // Validate factor (reasonable range: 0.5 to 5.0)
+                if (factor < 0.5f || factor > 5.0f) {
+                    DEBUG_PRINTF("WARNING: Drive battery factor %.3f outside valid range (0.5-5.0)\n", factor);
+                }
+                currentSettings.driveBatteryFactor = factor;
+                if (!saveSettings()) {
+                    DEBUG_LOG("ERROR: Skill 17 - Failed to save drive battery factor!");
+                }
+                DEBUG_PRINTF("Neuer Drive Faktor: %.3f\n", currentSettings.driveBatteryFactor);
+            }
             break;
-        case 18:
-            if (param1 > 0) { digitalWrite(DRIVE_UNIT_PIN, HIGH); DEBUG_LOG("Skill 18: Drive Unit Power ON (Pin 20 HIGH)"); }
-            else { digitalWrite(DRIVE_UNIT_PIN, LOW); DEBUG_LOG("Skill 18: Drive Unit Power OFF (Pin 20 LOW)"); }
+        case SKILL_DRIVE_POWER:
+            if (param1 > 0) {
+                digitalWrite(DRIVE_UNIT_PIN, HIGH);
+                DEBUG_LOG("Skill 18: Drive Unit Power ON (Pin 20 HIGH)");
+            } else {
+                digitalWrite(DRIVE_UNIT_PIN, LOW);
+                DEBUG_LOG("Skill 18: Drive Unit Power OFF (Pin 20 LOW)");
+            }
             break;
-        case 19:
-            global_cmdCode = (uint16_t)param1; global_accel = (uint16_t)param2; global_brake = (uint16_t)param3;
-            DEBUG_PRINTF("Skill 19: Parameters updated -> Cmd: %d, Accel: %d, Brake: %d\n", global_cmdCode, global_accel, global_brake);
+        case SKILL_HOVERBOARD_PARAMS:
+            global_cmdCode = (uint16_t)param1;
+            global_accel = (uint16_t)param2;
+            global_brake = (uint16_t)param3;
+            DEBUG_PRINTF("Skill 19: Parameters updated -> Cmd: %d, Accel: %d, Brake: %d\n",
+                         global_cmdCode, global_accel, global_brake);
             break;
     }
 }
@@ -996,11 +1240,26 @@ void handleSetupSkills(uint8_t skill, int16_t param1, int16_t param2, int16_t pa
 // HAUPT-VERTEILER (Der Ersatz für das Spaghetti-Monster)
 // ---------------------------------------------------------------------
 void triggerSkill(uint8_t skill, int16_t param1 = 0, int16_t param2 = 0, int16_t param3 = 0, int16_t param4 = 0, int16_t param5 = 0, int16_t param6 = 0) {
-    if (skill <= 4 || skill == 20) {
+    // Validate skill code (0 and >20 are reserved/invalid, except 255)
+    if (skill == SKILL_NONE) {
+        DEBUG_LOG("WARNING: Skill 0 (none) triggered - ignoring.");
+        return;
+    }
+    if (skill > SKILL_DISTANCE_MISSION && skill != SKILL_HEARTBEAT) {
+        DEBUG_PRINTF("WARNING: Invalid skill code %d - ignoring.\n", skill);
+        return;
+    }
+    
+    // Verteile Skills an die entsprechenden Handler
+    if (skill <= SKILL_TURN_180 || skill == SKILL_DISTANCE_MISSION) {
+        // Drive & Movement Skills: 0-4, 20
         handleDriveSkills(skill, param1, param2, param3, param4, param5, param6);
-    } else if (skill == 5 || skill == 6 || skill == 10 || skill == 11) {
+    } else if (skill == SKILL_BLADE_LIFT || skill == SKILL_BLADE_CONTROL || 
+               skill == SKILL_SET_BLADE_SPEEDS || skill == SKILL_CABLE_RESET) {
+        // Blade & Actuator Skills: 5, 6, 10, 11
         handleBladeSkills(skill, param1, param2, param3, param4);
     } else {
+        // Setup & System Skills: 7-9, 12-19, 255
         handleSetupSkills(skill, param1, param2, param3, param4, param5, param6);
     }
 }
@@ -1319,17 +1578,17 @@ void handleSerialInput() {
         }
 
         // --- C: EINZEL-BEFEHLE (Skills ohne Komma) ---
-        else if (inputString == "1")  { triggerSkill(1); }
-        else if (inputString == "2-") { triggerSkill(2, -1000); }
-        else if (inputString == "2+") { triggerSkill(2, 1000); }
-        else if (inputString == "3")  { triggerSkill(3); }
-        else if (inputString == "4-") { triggerSkill(4, -1000); }
-        else if (inputString == "4+") { triggerSkill(4, 1000); }
-        else if (inputString == "6")  { triggerSkill(6, 1); }
+        else if (inputString == "1")  { triggerSkill(SKILL_RESET); }
+        else if (inputString == "2-") { triggerSkill(SKILL_TURN_90, -1000); }
+        else if (inputString == "2+") { triggerSkill(SKILL_TURN_90, 1000); }
+        else if (inputString == "3")  { triggerSkill(SKILL_HOLD_LINE); }
+        else if (inputString == "4-") { triggerSkill(SKILL_TURN_180, -1000); }
+        else if (inputString == "4+") { triggerSkill(SKILL_TURN_180, 1000); }
+        else if (inputString == "6")  { triggerSkill(SKILL_BLADE_CONTROL, BLADE_ON_CMD); }
         else if (inputString == "7")  {
             DEBUG_PRINTF("Skill 7 Info: Current Max Speed: %d, Max Steer: %d\n", currentSettings.currentMaxSpeed, currentSettings.currentMaxSteer);
         }
-        else if (inputString == "8")  { triggerSkill(8, 1); }
+        else if (inputString == "8")  { triggerSkill(SKILL_ESTOP, 1); }
         else if (inputString == "9")  {
             DEBUG_LOG("Skill 9 triggered via Serial. Restarting ESP32...");
             ESP.restart();
@@ -1369,7 +1628,7 @@ void monitorSkill8Angles(float pitch, float roll) {
                 debugPrintf("Skill 8: Capsize safety stop triggered (Angle > %.1f for > %dms).\n", currentSettings.capsizeAngle, currentSettings.capsizeTimeout);
             }
             skill8SafetyActive = true;  // Activate the safety stop
-            triggerSkill(6, -1);      // Turn off blade
+            triggerSkill(SKILL_BLADE_CONTROL, BLADE_OFF_CMD);  // Turn off blade
             Send(0, 0);               // Stop hoverboard movement
         }
         // If the tilt is less than the timeout, we do nothing and wait for the next check.
@@ -1734,35 +1993,35 @@ void setup() {
     // Initialize default skill states
 
     if (DEFAULT_SKILL1_ACTIVE) {
-        triggerSkill(1); // Skill 1: Reset Gyro Values
+        triggerSkill(SKILL_RESET); // Skill 1: Reset Gyro Values
     }
     if (DEFAULT_SKILL2_ACTIVE) {
         // Specify direction: 1 for right, -1 for left
-        triggerSkill(2, 1); // Skill 2: 90-degree turn right
+        triggerSkill(SKILL_TURN_90, 1); // Skill 2: 90-degree turn right
     }
     if (DEFAULT_SKILL3_ACTIVE) {
-        triggerSkill(3); // Skill 3: Hold the Line
+        triggerSkill(SKILL_HOLD_LINE); // Skill 3: Hold the Line
     }
     if (DEFAULT_SKILL4_ACTIVE) {
         // Specify direction: 1 for right, -1 for left
-        triggerSkill(4, 1); // Skill 4: 180-degree turn right
+        triggerSkill(SKILL_TURN_180, 1); // Skill 4: 180-degree turn right
     }
     if (DEFAULT_SKILL5_ACTIVE) {
-        triggerSkill(5); // Skill 5: Hold Position
+        triggerSkill(SKILL_BLADE_LIFT); // Skill 5: Blade Lift
     }
     if (DEFAULT_SKILL6_ACTIVE) {
         // Specify direction: 1 to activate, -1 to deactivate
-        triggerSkill(6, 1); // Skill 6: Blade On
+        triggerSkill(SKILL_BLADE_CONTROL, BLADE_ON_CMD); // Skill 6: Blade On
     }
     if (DEFAULT_SKILL7_ACTIVE) {
-        triggerSkill(7); // Skill 7: Max Speed and Steer setting
+        triggerSkill(SKILL_SET_LIMITS); // Skill 7: Max Speed and Steer setting
     }
     if (ENABLE_DEBUG_SERIAL) {
         debugPrintln("Activating default skill: Skill 8 (Capsize Protection).");
     }
-    triggerSkill(8, 1); // Force Skill 8 to be active on startup
+    triggerSkill(SKILL_ESTOP, 1); // Force Skill 8 to be active on startup
     if (DEFAULT_SKILL9_ACTIVE) {
-        triggerSkill(9); // Skill 9: Reset ESP32
+        triggerSkill(SKILL_REBOOT); // Skill 9: Reset ESP32
     }
 
 

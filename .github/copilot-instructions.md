@@ -4,7 +4,9 @@
 
 - **Goal:** Autonomous/Manual lawnmower firmware driving a Hoverboard base + Brushless Blade Motor.
 - **Hardware:** ESP32-S3 DevKitC-1, MPU6050 (I2C), Hoverboard Mainboard (UART), 120A ESC (Blade).
-- **Single Source of Truth:** `src/ManualLawnmover.cpp` contains all hardware specs, pinout definitions, battery config, and skill documentation. **Consult this file before changing hardware-related constants.**
+- **Hardware Specs:** `docs/TECHNICAL_MANUAL.md` contains all hardware specs, pinout definitions, battery config. **Consult this file before changing hardware-related constants.**
+- **Software Architecture:** `AGENTS.md` contains software documentation, build instructions, and project structure.
+- **Change History:** `docs/archive/` contains the development diary (Diario) with all changes documented by date.
   "Ich nutze PlatformIO. Achte darauf, Bibliotheken in der platformio.ini zu verwalten."
 
 ## 2. Architecture (Dual-Core FreeRTOS)

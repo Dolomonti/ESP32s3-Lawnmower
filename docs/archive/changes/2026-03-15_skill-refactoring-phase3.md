@@ -1,0 +1,148 @@
+# 🔧 SKILL REFACTORING - Phase 3: Fehlerbehandlung & Validierung
+
+> **Datum:** 2026-03-15 00:58 CET  
+> **Agent:** Kimi Code CLI  
+> **Status:** 🔄 In Arbeit  
+> **Warnung:** Ändert Fehlerverhalten - Hardware-Test empfohlen!
+
+---
+
+## 🎯 ZIELSETZUNG
+
+Fehlerbehandlung und Validierung implementieren, um robustere Code-Ausführung zu gewährleisten.
+
+### Offene Probleme (4 Stück)
+
+| # | Problem | Ort | Lösung |
+|---|---------|-----|--------|
+| 1 | EEPROM-Fehler wird ignoriert | Alle `saveSettings()` | Rückgabewert prüfen |
+| 2 | PWM-Werte unvalidiert | Skill 6 | Bereichsprüfung 1000-2000 |
+| 3 | Skill-Nummern unvalidiert | `triggerSkill()` | Bounds-Checking 0-255 |
+| 4 | Parameter unvalidiert | Skill 7, 15, 16, 17 | Min/Max-Prüfung |
+
+---
+
+## ⚠️ WICHTIGE HINWEISE
+
+### Verhaltensänderungen
+- **Vorher:** Fehler werden ignoriert, Code läuft weiter
+- **Nachher:** Fehler werden geloggt, teilweise frühzeitiger Abbruch
+
+### Hardware-Test empfohlen
+- EEPROM-Schreiben testen
+- PWM-Grenzwerte testen
+- Ungültige Skill-Codes testen
+
+---
+
+## 📋 GEPLANTE ÄNDERUNGEN
+
+### 1. `saveSettings()` Fehlerbehandlung
+**Ort:** Alle Aufrufe in `handleSetupSkills()`
+
+**Vorher:**
+```cpp
+saveSettings();  // Rückgabewert ignoriert
+```
+
+**Nachher:**
+```cpp
+if (!saveSettings()) {
+    DEBUG_LOG("ERROR: Failed to save settings to EEPROM!");
+}
+```
+
+### 2. PWM-Wert-Validierung (Skill 6)
+**Ort:** Web PWM control
+
+**Vorher:**
+```cpp
+current_blade_pwm = key - PWM_WEB_OFFSET;
+```
+
+**Nachher:**
+```cpp
+int16_t pwmValue = key - PWM_WEB_OFFSET;
+if (pwmValue < 1000 || pwmValue > 2000) {
+    DEBUG_PRINTF("ERROR: PWM %d out of range (1000-2000)\n", pwmValue);
+    stopBladeSafely("PWM out of range");
+    break;
+}
+current_blade_pwm = pwmValue;
+```
+
+### 3. Bounds-Checking (triggerSkill)
+**Ort:** `triggerSkill()` Funktion
+
+**Nachher:**
+```cpp
+if (skill > 255) {
+    DEBUG_PRINTF("ERROR: Invalid skill code %d\n", skill);
+    return;
+}
+```
+
+### 4. Parameter-Validierung
+**Ort:** Skill 7, 15, 16, 17
+
+**Beispiel Skill 7:**
+```cpp
+// Vorher:
+if (param3 > 0) currentSettings.currentMaxSpeed = constrain(param3, 0, MAX_SPEED);
+
+// Nachher:
+if (param3 > 0) {
+    if (param3 > MAX_SPEED) {
+        DEBUG_PRINTF("ERROR: Max speed %d exceeds limit %d\n", param3, MAX_SPEED);
+        param3 = MAX_SPEED;
+    }
+    currentSettings.currentMaxSpeed = param3;
+}
+```
+
+---
+
+## 📝 VERIFIKATION
+
+- [x] Build erfolgreich (`pio run` - SUCCESS)
+- [x] Fehler-Logging implementiert
+- [ ] Hardware-Test (empfohlen vor Einsatz!)
+
+**Build-Datum:** 2026-03-15 01:00 CET
+**Speicher:** RAM 15.9%, Flash 33.4% (+964 Bytes für Fehlerbehandlung)
+
+---
+
+## ✅ ZUSAMMENFASSUNG
+
+### Implementierte Fehlerbehandlung
+
+| # | Problem | Lösung | Status |
+|---|---------|--------|--------|
+| 1 | EEPROM-Fehler wird ignoriert | `saveSettings()` gibt jetzt `bool` zurück | ✅ |
+| 2 | PWM-Werte unvalidiert | Bereichsprüfung 1000-2000 in Skill 6 | ✅ |
+| 3 | Skill-Nummern unvalidiert | Bounds-Checking in `triggerSkill()` | ✅ |
+| 4 | Parameter unvalidiert | Min/Max-Prüfung für PD Gains, Battery Factors | ✅ |
+
+### Code-Änderungen
+
+1. **`saveSettings()` → `bool`**: Rückgabewert zeigt Erfolg/Fehler an
+2. **Skill 6 PWM-Validierung**: Web-PWM wird auf gültigen Bereich geprüft
+3. **Skill-Code Validierung**: Ungültige Skill-Codes werden abgewiesen
+4. **Parameter-Clamping**: PD Gains max 10.0, Battery Factors in realistischen Bereichen
+
+---
+
+## ⚠️ WICHTIG
+
+**Hardware-Test empfohlen vor Einsatz!**
+- EEPROM-Schreiben testen
+- PWM-Grenzwerte testen
+- Fehlerfälle simulieren
+
+---
+
+## 🔗 VERKNÜPFUNGEN
+
+- Gesamtübersicht: `docs/archive/changes/2026-03-15_skill-refactoring-summary.md`
+- Roadmap: `docs/archive/plans/skill-refactoring-roadmap.md`

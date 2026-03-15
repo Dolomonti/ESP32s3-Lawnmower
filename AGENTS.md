@@ -1,5 +1,7 @@
 # ESP32 Lawnmower Control System - Agent Documentation
 
+> **🤖 Für KI-Agents:** Bei JEDER Änderung siehe `docs/archive/KI_GUIDELINES.md` - Aktualisiere Ordnerbaum und To-Do-Liste mit Zeitstempel!
+
 ## Project Overview
 
 This is an **ESP32-S3 based robotic lawnmower control system** built with PlatformIO. The project controls a custom-built autonomous/remote-controlled lawnmower featuring:
@@ -105,24 +107,27 @@ PS3 controller documentation:
 
 ## GPIO Pinout
 
-| GPIO | Type | Function | Details |
-|------|------|----------|---------|
-| 1 | Analog | Blade Battery Sense | Voltage divider, factor ~6.07 |
-| 2 | Output | Onboard LED | Heartbeat/Status |
-| 4 | Output | Blade ESC PWM | 1000-2000μs servo signal |
-| 5 | Output | Blade Relay | Safety cutoff (active HIGH) |
-| 10 | Input | Button 1 | Pullup, Test forward |
-| 11 | Input | Button 2 | Pullup, Test reverse |
-| 13 | I2C | MPU6050 SDA | Motion sensor data |
-| 14 | I2C | MPU6050 SCL | Motion sensor clock |
-| 15 | Input | E-Stop Button | Pullup, Physical emergency stop |
-| 17 | UART TX | To Hoverboard | Green wire (RX) |
-| 18 | UART RX | From Hoverboard | Blue wire (TX) |
-| 19 | Output | Blade Unit Power | Controls blade power relay |
-| 20 | Output | Drive Unit Power | Controls drive power relay |
-| 35 | Output | Blade UP | Lift actuator up |
-| 36 | Output | Blade DOWN | Lift actuator down |
-| 46 | Input | MPU6050 INT | Data ready interrupt |
+> **Source of Truth:** `src/main.cpp` Zeilen 126-143, 1682  
+> **⚠️ Known Issue:** In `src/main.cpp` Zeile 137-138 sind `BLADE_UNIT_PIN` und `DRIVE_UNIT_PIN` beide als GPIO 20 definiert. Laut Code-Kommentaren (Zeile 1526, 1529) sollte BLADE_UNIT_PIN = GPIO 19 sein.
+
+| GPIO | Type | Function | Details | Code-Referenz |
+|------|------|----------|---------|---------------|
+| 1 | Analog | Blade Battery Sense | Voltage divider, factor ~6.07 | `BLADE_BATTERY_PIN` |
+| 2 | Output | Onboard LED | Heartbeat/Status | `LED_BUILTIN` |
+| 4 | Output | Blade ESC PWM | 1000-2000μs servo signal | `BLADE_ESC_PIN` |
+| 5 | Output | Blade Relay | Safety cutoff (active HIGH) | `BLADE_RELAY_PIN` |
+| 10 | Input | Button 1 | Pullup, Test forward | `BUTTON1_PIN` |
+| 11 | Input | Button 2 | Pullup, Test reverse | `BUTTON2_PIN` |
+| 13 | I2C | MPU6050 SDA | Motion sensor data | `Wire.begin(13, 14)` |
+| 14 | I2C | MPU6050 SCL | Motion sensor clock | `Wire.begin(13, 14)` |
+| 15 | Input | E-Stop Button | Pullup, Physical emergency stop | `EMERGENCY_STOP_PIN` |
+| 17 | UART TX | To Hoverboard | Green wire (RX) | `HOVER_TX_PIN` |
+| 18 | UART RX | From Hoverboard | Blue wire (TX) | `HOVER_RX_PIN` |
+| 19 | Output | Blade Unit Power | Controls blade power relay | `BLADE_UNIT_PIN` ✅ Fixed |
+| 20 | Output | Drive Unit Power | Controls drive power relay | `DRIVE_UNIT_PIN` |
+| 35 | Output | Blade UP | Lift actuator up | `BLADE_UP_PIN` |
+| 36 | Output | Blade DOWN | Lift actuator down | `BLADE_DOWN_PIN` |
+| 46 | Input | MPU6050 INT | Data ready interrupt | DMP Interrupt |
 
 ---
 

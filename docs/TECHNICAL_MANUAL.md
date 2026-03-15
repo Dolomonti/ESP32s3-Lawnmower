@@ -49,20 +49,28 @@
 
 ### 1.4 Pinout Reference
 
-| GPIO | Type | Function | Details |
-|------|------|----------|---------|
-| 1 | Analog | Blade Battery Sense | Factor 6.07 |
-| 2 | Output | Onboard LED | Heartbeat/Status |
-| 4 | Output | Blade ESC PWM | 1000-2000us |
-| 5 | Output | Blade Relay | Safety Cutoff |
-| 10 | Input | Button 1 (Test Fwd) | Pullup, Speed 200 |
-| 11 | Input | Button 2 (Test Rev) | Pullup, Speed -200 |
-| 13 | I2C | MPU6050 SDA | Motion Sensor |
-| 14 | I2C | MPU6050 SCL | Motion Sensor |
-| 15 | Input | E-Stop Button | Pullup, Physical Emergency |
-| 17 | UART | TX to Hoverboard | Green Wire |
-| 18 | UART | RX from Hoverboard | Blue Wire |
-| 46 | Input | MPU6050 INT | Data Ready Interrupt |
+> **Quelle:** `src/main.cpp` (Zeilen 126-143, 1682)
+
+| GPIO | Type | Function | Details | Variable Name |
+|------|------|----------|---------|---------------|
+| 1 | Analog | Blade Battery Sense | Voltage divider, factor ~6.07 | `BLADE_BATTERY_PIN` |
+| 2 | Output | Onboard LED | Heartbeat/Status | `LED_BUILTIN` |
+| 4 | Output | Blade ESC PWM | 1000-2000μs servo signal | `BLADE_ESC_PIN` |
+| 5 | Output | Blade Relay | Safety cutoff (active HIGH) | `BLADE_RELAY_PIN` |
+| 10 | Input | Button 1 (Test Fwd) | Pullup, Speed 200 | `BUTTON1_PIN` |
+| 11 | Input | Button 2 (Test Rev) | Pullup, Speed -200 | `BUTTON2_PIN` |
+| 13 | I2C | MPU6050 SDA | Motion sensor data | `Wire.begin(13, 14)` |
+| 14 | I2C | MPU6050 SCL | Motion sensor clock | `Wire.begin(13, 14)` |
+| 15 | Input | E-Stop Button | Pullup, Physical emergency stop | `EMERGENCY_STOP_PIN` |
+| 17 | UART TX | To Hoverboard | Green wire (RX) | `HOVER_TX_PIN` |
+| 18 | UART RX | From Hoverboard | Blue wire (TX) | `HOVER_RX_PIN` |
+| 19 | Output | Blade Unit Power | Controls blade power relay ⚠️ | `BLADE_UNIT_PIN`¹ |
+| 20 | Output | Drive Unit Power | Controls drive power relay | `DRIVE_UNIT_PIN` |
+| 35 | Output | Blade UP | Lift actuator up | `BLADE_UP_PIN` |
+| 36 | Output | Blade DOWN | Lift actuator down | `BLADE_DOWN_PIN` |
+| 46 | Input | MPU6050 INT | Data ready interrupt (DMP) | Interrupt Pin |
+
+> **✅ Fix:** `BLADE_UNIT_PIN` wurde korrigiert (war fälschlicherweise 20, jetzt 19). Siehe `docs/archive/changes/2026-03-15_blade-unit-pin-fix.md`
 
 ---
 
@@ -189,4 +197,6 @@
 
 ---
 
-> **This document is the "SINGLE SOURCE OF TRUTH" for the Lawnmower project.**
+> **This document is the "SINGLE SOURCE OF TRUTH" for hardware specifications.**  
+> **For software architecture:** See `AGENTS.md`  
+> **For change history:** See `docs/archive/`
