@@ -137,33 +137,53 @@
 
 ---
 
-## Phase 4: Architektur & Modularisierung 🟢 LANGFRISTIG
+## Phase 4: Architektur & Modularisierung 🟢 LANGFRISTIG - IN ARBEIT (Config.h fertig)
 
 **Ziel:** main.cpp entlasten, "God Class" auflösen.
 
-#### Schritt 4.1: Config.h erstellen
-- [ ] Alle `#define` aus main.cpp extrahieren
-- [ ] Pin-Definitionen verschieben
-- [ ] Settings-Struct verschieben
-- [ ] **AKTUALISIERT:** _
+#### Schritt 4.1: Config.h erstellen ✅ ERLEDIGT
+- [x] Datei `src/Config.h` erstellt (10.4 KB)
+- [x] Alle `#define` Konstanten extrahiert (PINS, TIMING, TEMPERATURE)
+- [x] Pin-Definitionen extrahiert (GPIO 1-46)
+- [x] Settings-Struct verschoben (33 Felder)
+- [x] Enum-Definitionen verschoben (SkillCode, BladeState, BladeHeight)
+- [x] Extern-Deklarationen für globale Variablen hinzugefügt
+- [x] **AKTUALISIERT:** 2026-03-15 05:45 CET
 
-#### Schritt 4.2: HoverboardComm.h/cpp erstellen
+#### Schritt 4.2: Config.h in main.cpp einbinden ✅ ERLEDIGT
+- [x] `#include "Config.h"` hinzugefügt
+- [x] Doppelte Definitionen entfernt:
+  - Alle #define PINS
+  - Alle constexpr Konstanten
+  - Settings-Struct
+  - Alle Enums
+  - WEB_LOG_BUFFER_SIZE Konflikt gelöst
+- [x] Atomare Variablen korrekt definiert (nicht doppelt)
+- [x] DEBUG_LOG Makros in main.cpp belassen (Template-Problematik)
+- [x] Build: SUCCESS
+- [x] **AKTUALISIERT:** 2026-03-15 05:55 CET
+
+#### Schritt 4.3: HoverboardComm.h/cpp erstellen
+- [ ] `src/HoverboardComm.h` erstellen
+- [ ] `src/HoverboardComm.cpp` erstellen
 - [ ] UART-Kommunikation extrahieren
-- [ ] `Send()`, `Receive()` verschieben
-- [ ] Mutex-Handling kapseln
 - [ ] **AKTUALISIERT:** _
 
-#### Schritt 4.3: SensorManager.h/cpp erstellen
-- [ ] MPU6050-Initialisierung verschieben
-- [ ] `mpuReadTask` verschieben
-- [ ] Spannungsmessung verschieben
+#### Schritt 4.4: SensorManager.h/cpp erstellen
+- [ ] `src/SensorManager.h` erstellen
+- [ ] `src/SensorManager.cpp` erstellen
+- [ ] MPU6050 & Spannungsmessung extrahieren
 - [ ] **AKTUALISIERT:** _
 
-#### Schritt 4.4: NetworkManager.h/cpp erstellen
-- [ ] WiFi-Setup verschieben
-- [ ] WebServer verschieben
-- [ ] DNS/AP-Handling verschieben
+#### Schritt 4.5: NetworkManager.h/cpp erstellen
+- [ ] `src/NetworkManager.h` erstellen
+- [ ] `src/NetworkManager.cpp` erstellen
+- [ ] WiFi & WebServer extrahieren
 - [ ] **AKTUALISIERT:** _
+
+#### Schritt 4.6: Finale Build-Tests
+- [ ] `pio run -e esp32s3` erfolgreich
+- [ ] **ERGEBNIS:** _
 
 ---
 

@@ -1,6 +1,8 @@
 /* Lawnmower Project - main.cpp */
 
 #include <Arduino.h>
+#include "Config.h"  // Phase 4: Zentrale Konfiguration
+#include <ESP32Servo.h>  // Für bladeEsc
 
 /*
 // ====================================================================================
@@ -123,97 +125,8 @@ WiFiWebServer by Khoi Hoang (Version 1.10.1)
 // int16_t bladeMaxSpeed = 9000;
 
 
-#define HOVER_RX_PIN             18          // GPIO for HoverSerial TX blue cable
-#define HOVER_TX_PIN             17          // GPIO for HoverSerial RX green cable
-#ifndef LED_BUILTIN
-  #define LED_BUILTIN            2           // Onboard LED pin (fallback if not defined by board)
-#endif
-#define BUTTON1_PIN              10          // GPIO for Button 1
-#define BUTTON2_PIN              11          // GPIO for Button 2
-#define BLADE_UP_PIN               35          // Example GPIO pin for blade up
-#define BLADE_DOWN_PIN           36          // Example GPIO pin for blade down
-#define EMERGENCY_STOP_PIN       15            // GPIO pin for the emergency stop button
-#define BLADE_BATTERY_PIN            1         // to measure the minus pole of the 4S battery and have multiple resistors inbetween!
-#define BLADE_UNIT_PIN               19        // Power Pin für Blade Unit (GPIO 19)
-#define DRIVE_UNIT_PIN               20        // Power Pin für Drive Unit (GPIO 20)
-
-
-#include <ESP32Servo.h>
-const int BLADE_ESC_PIN = 4; // Wunschgemäß auf Pin 4 gesetzt
-const int BLADE_RELAY_PIN = 5;
-const int BLADE_ZERO_US = 1500; // je nach ESC Voreinstellung
-
-#define SAFETY_TRIGGER_DELAY 5000    // Verzögerung für Sicherheitsabschaltungen Volt un Temperatur in ms (5 Sek)
-
 // ====================================================================================
-// ===== PHASE 3 REFACTORING: Constants & Macros ======================================
-// ====================================================================================
-
-// --- Angle Constants ---
-constexpr float ANGLE_NORMALIZE_MIN = -180.0f;
-constexpr float ANGLE_NORMALIZE_MAX = 180.0f;
-constexpr float CAPSIZE_THRESHOLD_PITCH = 60.0f;  // Capsize detection angle
-constexpr float CAPSIZE_THRESHOLD_ROLL = 60.0f;
-
-// --- PD-Controller Constants ---
-constexpr float PD_ERROR_THRESHOLD = 2.0f;  // Target reached threshold in degrees
-
-// --- Skill System Constants (Phase 2 Refactoring) ---
-// Turn angles for automated movements
-constexpr float TURN_ANGLE_90 = 90.0f;
-constexpr float TURN_ANGLE_180 = 180.0f;
-
-// Blade control key codes (Skill 6)
-constexpr int16_t PWM_WEB_OFFSET = 20000;      // Base offset for web PWM values
-constexpr int16_t PWM_WEB_MIN = 21000;         // Minimum web PWM key
-constexpr int16_t PWM_WEB_MAX = 22000;         // Maximum web PWM key
-constexpr int16_t KEY_BLADE_SPEED1 = 25600;    // Activate working speed
-constexpr int16_t KEY_BLADE_SPEED1_ALT = 2;    // Alternative for speed 1
-constexpr int16_t KEY_BLADE_SPEED2 = 26500;    // Activate stage 2 speed
-constexpr int16_t KEY_BLADE_SPEED2_ALT = 3;    // Alternative for speed 2
-
-// Skill 8 config modes
-constexpr int16_t CONFIG_MODE_ANGLE = 1000;    // Set capsize angle
-constexpr int16_t CONFIG_MODE_TIMEOUT = 1001;  // Set capsize timeout
-
-// Skill 11 minimum RPM threshold
-constexpr int16_t MIN_RPM_THRESHOLD = 1000;    // Minimum RPM for cable reset
-
-// --- Skill System Enums (Phase 4 Refactoring) ---
-enum SkillCode : uint8_t {
-    SKILL_NONE = 0,
-    SKILL_RESET = 1,
-    SKILL_TURN_90 = 2,
-    SKILL_HOLD_LINE = 3,
-    SKILL_TURN_180 = 4,
-    SKILL_BLADE_LIFT = 5,
-    SKILL_BLADE_CONTROL = 6,
-    SKILL_SET_LIMITS = 7,
-    SKILL_ESTOP = 8,
-    SKILL_REBOOT = 9,
-    SKILL_SET_BLADE_SPEEDS = 10,
-    SKILL_CABLE_RESET = 11,
-    SKILL_DRIVE_LEVELS = 12,
-    SKILL_BLADE_LEVELS = 13,
-    SKILL_CAPSIZE_PARAMS = 14,
-    SKILL_PD_GAINS = 15,
-    SKILL_BLADE_BATTERY_FACTOR = 16,
-    SKILL_DRIVE_BATTERY_FACTOR = 17,
-    SKILL_DRIVE_POWER = 18,
-    SKILL_HOVERBOARD_PARAMS = 19,
-    SKILL_DISTANCE_MISSION = 20,
-    SKILL_HEARTBEAT = 255
-};
-
-// Blade control sub-commands
-constexpr int16_t BLADE_OFF_CMD = -1;
-constexpr int16_t BLADE_ON_CMD = 1;
-
-// --- Debug Logging Macro (Phase 3.2) ---
-// Usage: DEBUG_LOG("Message"); or DEBUG_PRINTF("Value: %d\n", val);
-#define DEBUG_LOG(msg) do { if (ENABLE_DEBUG_SERIAL) debugPrintln(msg); } while(0)
-#define DEBUG_PRINTF(fmt, ...) do { if (ENABLE_DEBUG_SERIAL) debugPrintf(fmt, ##__VA_ARGS__); } while(0)
-
+// ===== Phase 4: Config.h enthält jetzt alle Konstanten, Enums und Settings ==========
 // ====================================================================================
 
 // 1. ESP-NOW Command Struktur
@@ -280,93 +193,27 @@ const byte DNS_PORT = 53;
 #define ESPNOW_FIXED_CHANNEL 6
 
 #define EEPROM_SIZE 512 // Adjust based on your requirements
-#define SSID_ADDR 0      // EEPROM address for SSID
-#define PASSWORD_ADDR 32 // EEPROM address for password
-#define SETTINGS_ADDR 100 // EEPROM address for settings structure
-
-// --- Settings Structure for EEPROM Persistence ---
-struct Settings {
-    uint32_t magic; // Magic number to check if settings are initialized
-
-    // Drive System
-    int16_t driveMinShutdownVoltage;
-    int16_t driveSafetyModeVoltage;
-    int16_t driveHighVoltage;
-    int16_t driveEmergencyLowTemp;
-    int16_t driveSafetyModeTemp;
-    int16_t driveHighTemp;
-
-    // Blade System
-    int16_t bladeMinShutdownVoltage;
-    int16_t bladeSafetyModeVoltage;
-    int16_t bladeHighVoltage;
-    int16_t bladeEmergencyLowTemp;
-    int16_t bladeSafetyModeTemp;
-    int16_t bladeHighTemp;
-
-    // Speed & Steering
-    int16_t maxSpeed;
-    int16_t maxSteer;
-    int16_t currentMaxSpeed;
-    int16_t currentMaxSteer;
-
-    float bladeBatteryFactor; // Der Multiplikator für blade batterz adjustment (z.B. 23.0)
-    float driveBatteryFactor;
-
-    // Blade Speeds
-    int16_t bladeWorkingSpeed;
-    int16_t bladeStage2Speed;
-    int16_t bladeMaxSpeed;
-    int16_t bladeCableResetRpm;
-    int16_t bladeResetRampS;      
-    int16_t bladeResetDurationS;
-
-    float capsizeAngle;     // The angle (in degrees) at which capsize is detected.
-    int16_t capsizeTimeout; // The time (in ms) the angle must be exceeded to trigger a stop.
-    
-    float Kp; // Proportional Gain
-    float Kd; // Derivative Gain
-
-    char apiKey[65]; // Google Gemini API Key
-};
-
+// Settings-Struct ist in Config.h, aber Instanz muss hier definiert werden
 Settings currentSettings; // Global settings object
 
-// ---  Blade Control Variablen & State Machine ---
-Servo bladeEsc; // Das Objekt zur Motorsteuerung
-
-enum BladeState {
-  BLADE_OFF,
-  BLADE_WORK,         // Normales Mähen
-  BLADE_CABLE_RESET   // Die Rampe für den Kabel-Reset
-};
-
+// Blade Control Variablen - Enums in Config.h, Instanzen hier
+Servo bladeEsc; // Blade ESC Servo object
 BladeState currentBladeState = BLADE_OFF;
-
-// Blade height state for safety: only allow blade ON / speeds when blade is DOWN
-enum BladeHeight {
-  BLADE_HEIGHT_UNKNOWN,
-  BLADE_HEIGHT_UP,
-  BLADE_HEIGHT_DOWN
-};
 BladeHeight currentBladeHeight = BLADE_HEIGHT_UNKNOWN;
 
 unsigned long bladeSequenceStartTime = 0;
 int current_blade_pwm = BLADE_ZERO_US; 
 
-// Konstanten für den Reset (festgelegt wie im alten Code, da nicht im EEPROM struct vorhanden)
-const unsigned long RESET_RAMP_MS = 3000; // 3 Sekunden Hochfahren
-const unsigned long RESET_HOLD_MS = 1000; // 1 Sekunde Halten
-
-// State variables for the new safety logic
-std::atomic<bool> isInSafetyMode{false};  // Phase 2: Thread-sicher
-int16_t originalMaxSpeed = 0; // Stores max speed before entering safety mode
+// State variables for safety logic - atomics in Config.h als extern
+int16_t originalMaxSpeed = 0;
 bool isHighVoltageShutdown = false;
 
-// Temperature monitoring thresholds (unchanged)
-#define TEMP_SHUTDOWN_DEGREES        8000  // System shuts down above 80.0 C
-#define TEMP_CRITICAL_DEGREES        7000  // Critical warning above 70.0 C
-#define TEMP_WARNING_DEGREES         6000  // Warning above 60.0 C
+// Atomische Variablen müssen hier definiert werden (extern in Config.h)
+std::atomic<bool> isInSafetyMode{false};
+std::atomic<bool> skill8SafetyActive{false};
+std::atomic<bool> skillActive{false};
+std::atomic<int> currentSkill{0};
+std::atomic<bool> hoverboardIsBusy{false};
 
 // Timer for sending status updates to the webpage
 unsigned long lastStatusSend = 0;
@@ -390,7 +237,7 @@ volatile bool shouldRestart = false; // Flag to trigger restart from main loop
 bool webLogActive = false;               // Schalter: Soll ans Web gesendet werden?
 
 // Ringpuffer für Web-Log (kein String für Heap-Fragmentierung)
-constexpr size_t WEB_LOG_BUFFER_SIZE = 2048;
+// WEB_LOG_BUFFER_SIZE ist in Config.h definiert
 char webLogBuffer[WEB_LOG_BUFFER_SIZE];  // Statischer Ringpuffer
 volatile size_t webLogWriteIndex = 0;    // Schreibposition
 volatile size_t webLogReadIndex = 0;     // Leseposition
@@ -520,6 +367,11 @@ void logToWebpage(const char* message) {
         ws.textAll(message);
     }
 }
+
+// 4. Debug Logging Macros (Phase 3.2)
+#define ENABLE_DEBUG_SERIAL      true
+#define DEBUG_LOG(msg)           do { if (ENABLE_DEBUG_SERIAL) debugPrintln(msg); } while(0)
+#define DEBUG_PRINTF(fmt, ...)   do { if (ENABLE_DEBUG_SERIAL) debugPrintf(fmt, ##__VA_ARGS__); } while(0)
 // ====================================================================================
 
 // ########################## DEFAULT SKILL ACTIVATION at start up ##########################
@@ -639,7 +491,6 @@ float yaw = 0.0, pitch = 0.0, roll = 0.0;
 // Case-related variables
 
 bool skill8Active = false;        // State of Skill 8
-std::atomic<bool> skill8SafetyActive{false};  // Phase 2: Thread-sicher - Safety signal active state
 bool hoverboardInverted = false;      // To detect capsizing
 
 int currentCase = 0;          // Case trigger variable (1, 2, 3, 4, or 5)
@@ -677,15 +528,12 @@ SerialFeedback Feedback;
 SerialFeedback NewFeedback;
 
 
-std::atomic<bool> skillActive{false};   // Phase 2: Thread-sicher - True if skill 2,3,4 is active
-std::atomic<int> currentSkill{0};       // Phase 2: Thread-sicher - Which skill is active
 int skillSteer = 0;             // Steering override generated by skill logic
 // --- Input-Quellen klar getrennt (Refactoring Task 2.2) ---
 volatile int16_t input_EspNowSpeed = 0;   // war: input_EspNowSpeed
 volatile int16_t input_EspNowSteer = 0;   // war: input_EspNowSteer
 volatile int16_t input_JoySpeed = 0;      // war: input_JoySpeed
 volatile int16_t input_JoySteer = 0;      // war: input_JoySteer 
-std::atomic<bool> hoverboardIsBusy{false};  // Phase 2: Thread-sicher (war: volatile) 
 volatile int16_t feedbackDistL = 0;
 volatile int16_t feedbackDistR = 0;       // FIX: Fehlte in deiner Liste
 volatile unsigned long skill20StartTime = 0; // FIX: Fehlte in deiner Liste
