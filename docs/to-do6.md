@@ -39,10 +39,12 @@
 - [x] `prefs.end();` schließt NVS
 - [x] **AKTUALISIERT:** 2026-03-15 05:05 CET - loadSettings() auf NVS umgestellt
 
-#### Schritt 1.2.4: WiFi Credentials umschreiben
-- [ ] `writeWiFiCredentialsToEEPROM()` → NVS
-- [ ] `readWiFiCredentialsFromEEPROM()` → NVS
-- [ ] **AKTUALISIERT:** _
+#### Schritt 1.2.4: WiFi Credentials umschreiben ✅ ERLEDIGT
+- [x] `writeWiFiCredentialsToEEPROM()` → `writeWiFiCredentialsToNVS()` umbenannt
+- [x] `readWiFiCredentialsFromEEPROM()` → `readWiFiCredentialsFromNVS()` umbenannt
+- [x] Beide Funktionen auf Preferences umgestellt
+- [x] Alle 3 Aufrufe aktualisiert (Zeilen 1857, 2337, 2721)
+- [x] **AKTUALISIERT:** 2026-03-15 05:08 CET - WiFi Credentials auf NVS umgestellt
 
 #### Schritt 1.2.5: `eepromSaveTask` anpassen
 - [ ] Task auf Preferences umstellen

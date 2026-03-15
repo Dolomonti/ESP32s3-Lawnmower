@@ -653,41 +653,53 @@ SemaphoreHandle_t i2cMutex;
 
 // Example: a function to clear skill states
 // *** TASK 3.1: Funktion checkWebSocketConnection() entfernt, direkt ws.cleanupClients() verwenden ***
-void readWiFiCredentialsFromEEPROM() {
-    for (int i = 0; i < 31; i++) {  // Only read 31 chars to leave room for null terminator
-        stored_ssid[i] = char(EEPROM.read(SSID_ADDR + i));
-        stored_password[i] = char(EEPROM.read(PASSWORD_ADDR + i));
+void readWiFiCredentialsFromNVS() {
+    // Phase 1.2: Umstellung auf Preferences (NVS)
+    Preferences prefs;
+    if (!prefs.begin("wifi", true)) {  // read-only
+        stored_ssid[0] = '\0';
+        stored_password[0] = '\0';
+        return;
     }
-    // Explicitly null-terminate both strings
-    stored_ssid[31] = '\0';
-    stored_password[31] = '\0';
+    
+    // SSID und Passwort aus NVS laden
+    String ssid = prefs.getString("ssid", "");
+    String password = prefs.getString("password", "");
+    prefs.end();
+    
+    // In globale Buffer kopieren (mit Längenbegrenzung)
+    strlcpy(stored_ssid, ssid.c_str(), 32);
+    strlcpy(stored_password, password.c_str(), 32);
 }
 
 
-void writeWiFiCredentialsToEEPROM(const char *ssid, const char *password) {
-    // Schreiben Sie die SSID- und Passwort-Zeichenfolgen in den EEPROM.
-    // Sicherheitsfix: Länge validieren und null-terminieren
+void writeWiFiCredentialsToNVS(const char *ssid, const char *password) {
+    // Phase 1.2: Umstellung auf Preferences (NVS)
+    Preferences prefs;
+    if (!prefs.begin("wifi", false)) {  // read-write
+        DEBUG_LOG("ERROR: Failed to open WiFi NVS namespace!");
+        logToWebpage("Error: Failed to save WiFi credentials.");
+        return;
+    }
+    
+    // Sicherheitsfix: Länge validieren
     size_t ssidLen = strlen(ssid);
     size_t passwordLen = strlen(password);
-
-    // Warnung wenn zu lang
     if (ssidLen >= 32 || passwordLen >= 32) {
         DEBUG_LOG("WARNING: WiFi credentials truncated (max 31 chars)");
     }
-
-    // Schreiben mit Null-Terminierung
-    for (int i = 0; i < 32; i++) {
-        EEPROM.write(SSID_ADDR + i, i < ssidLen ? ssid[i] : 0);
-        EEPROM.write(PASSWORD_ADDR + i, i < passwordLen ? password[i] : 0);
-    }
-
-    // Übertragen Sie die Änderungen in den permanenten Speicher und überprüfen Sie den Erfolg.
-    if (EEPROM.commit()) {
-        DEBUG_LOG("WiFi credentials successfully saved to EEPROM.");
-        logToWebpage("WiFi credentials saved."); // Informiert auch die Webseite
+    
+    // In NVS speichern
+    bool ssidOk = prefs.putString("ssid", ssid);
+    bool passOk = prefs.putString("password", password);
+    prefs.end();
+    
+    if (ssidOk && passOk) {
+        DEBUG_LOG("WiFi credentials successfully saved to NVS.");
+        logToWebpage("WiFi credentials saved.");
     } else {
-        DEBUG_LOG("ERROR: Failed to save WiFi credentials to EEPROM.");
-        logToWebpage("Error: Failed to save WiFi credentials."); // Informiert die Webseite über den Fehler
+        DEBUG_LOG("ERROR: Failed to save WiFi credentials to NVS.");
+        logToWebpage("Error: Failed to save WiFi credentials.");
     }
 }
 
@@ -1842,7 +1854,7 @@ void setup() {
     }
 
     // Read Wi-Fi credentials from EEPROM
-    readWiFiCredentialsFromEEPROM();
+    readWiFiCredentialsFromNVS();
 
     // 1. WiFi-Hardware resetten (verhindert Channel-Konflikte mit ESP-NOW)
     WiFi.disconnect(true); 
@@ -2322,7 +2334,7 @@ void core1WiFiTask(void *parameter) {
                 debugPrintln("Received new WiFi credentials via AP:");
                 debugPrintln(ssid);
             }
-            writeWiFiCredentialsToEEPROM(ssid.c_str(), password.c_str());
+            writeWiFiCredentialsToNVS(ssid.c_str(), password.c_str());
             request->send(200, "text/plain", "WiFi credentials received. Device is restarting...");
             logToWebpage("WiFi credentials saved. Restarting device to connect...");
             shouldRestart = true;
@@ -2706,7 +2718,7 @@ void handleResetWifi(AsyncWebServerRequest *request) {
     }
     logToWebpage("Resetting WiFi credentials in EEPROM...");
     // Write empty strings to the credential memory locations
-    writeWiFiCredentialsToEEPROM("", "");
+    writeWiFiCredentialsToNVS("", "");
     request->send(200, "text/plain", "WiFi credentials reset. Please restart the device.");
     logToWebpage("WiFi credentials have been reset on the device. A restart is required to apply the changes.");
 }
