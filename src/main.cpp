@@ -1840,8 +1840,7 @@ void setup() {
         debugPrintln("Blade Unit (19) and Drive Unit (20) initialized as LOW.");
     }
 
-    // Initialize EEPROM and load settings
-    EEPROM.begin(EEPROM_SIZE);
+    // Phase 1.2: Initialize NVS and load settings
     loadSettings();
 
     // Initialize peer tracking structure

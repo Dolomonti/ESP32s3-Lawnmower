@@ -10,7 +10,7 @@
 
 ## Phase 1: Speichermanagement & Haltbarkeit
 
-### Phase 1.2: Umstellung von EEPROM auf Preferences (NVS) 🔴 KRITISCH
+### Phase 1.2: Umstellung von EEPROM auf Preferences (NVS) ✅ ABGESCHLOSSEN
 
 **Problem:** EEPROM.h hat kein Wear-Leveling und zerstört den Flash-Speicher bei regelmäßigem Schreiben.
 
@@ -53,9 +53,11 @@
 - [x] Task-Erzeugung in setup() aktualisiert (Zeile 2139)
 - [x] **AKTUALISIERT:** 2026-03-15 05:11 CET - Task auf NVS umgestellt
 
-#### Schritt 1.2.6: Build testen
-- [ ] `pio run -e esp32s3` erfolgreich
-- [ ] **ERGEBNIS:** _
+#### Schritt 1.2.6: Build testen ✅ ERLEDIGT
+- [x] `pio run -e esp32s3` erfolgreich
+- [x] EEPROM.begin() entfernt (war überflüssig)
+- [x] **ERGEBNIS:** SUCCESS - RAM: 15.9%, Flash: 33.5%
+- [x] **AKTUALISIERT:** 2026-03-15 05:15 CET - Phase 1.2 ABGESCHLOSSEN
 
 ---
 
