@@ -126,21 +126,23 @@ if (param3 > 0) {
 | 3 | Skill-Nummern unvalidiert | Bounds-Checking in `triggerSkill()` | ✅ |
 | 4 | Parameter unvalidiert | Min/Max-Prüfung für PD Gains, Battery Factors | ✅ |
 
-### Vollständige Liste der saveSettings()-Aufrufe mit Fehlerprüfung
+### Vollständige Liste ALLER saveSettings()-Aufrufe mit Fehlerprüfung
 
-| Skill | Funktion | Status |
-|-------|----------|--------|
-| 7 | SET_LIMITS | ✅ Mit Fehlerprüfung |
-| 8 | ESTOP (Config) | ✅ Mit Fehlerprüfung |
-| 10 | SET_BLADE_SPEEDS | ✅ **Korrigiert** |
-| 12 | DRIVE_LEVELS | ✅ **Korrigiert** |
-| 13 | BLADE_LEVELS | ✅ **Korrigiert** |
-| 14 | CAPSIZE_PARAMS | ✅ **Korrigiert** |
-| 15 | PD_GAINS | ✅ Mit Fehlerprüfung |
-| 16 | BLADE_BATTERY_FACTOR | ✅ Mit Fehlerprüfung |
-| 17 | DRIVE_BATTERY_FACTOR | ✅ Mit Fehlerprüfung |
+| # | Ort | Funktion | Status |
+|---|-----|----------|--------|
+| 1 | Skill 7 | SET_LIMITS | ✅ Mit Fehlerprüfung |
+| 2 | Skill 8 | ESTOP (Config) | ✅ Mit Fehlerprüfung |
+| 3 | Skill 10 | SET_BLADE_SPEEDS | ✅ **Korrigiert** |
+| 4 | Skill 12 | DRIVE_LEVELS | ✅ **Korrigiert** |
+| 5 | Skill 13 | BLADE_LEVELS | ✅ **Korrigiert** |
+| 6 | Skill 14 | CAPSIZE_PARAMS | ✅ **Korrigiert** |
+| 7 | Skill 15 | PD_GAINS | ✅ Mit Fehlerprüfung |
+| 8 | Skill 16 | BLADE_BATTERY_FACTOR | ✅ Mit Fehlerprüfung |
+| 9 | Skill 17 | DRIVE_BATTERY_FACTOR | ✅ Mit Fehlerprüfung |
+| 10 | loadSettings() | Default-Werte | ✅ **Nachträglich korrigiert** |
+| 11 | onWsEvent() | API Key speichern | ✅ **Nachträglich korrigiert** |
 
-**ALLE AUFRUFE JETZT KORREKT!**
+**ALLE 11 AUFRUFE JETZT KORREKT! (100%)**
 
 ---
 

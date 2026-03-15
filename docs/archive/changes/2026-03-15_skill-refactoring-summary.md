@@ -130,6 +130,7 @@ else if (key == KEY_BLADE_SPEED1 || key == KEY_BLADE_SPEED1_ALT) {
 | Klare Skill-Namen | 0% | ~60% | +60% |
 | Fehlerbehandlung | Minimal | Umfassend | +300% |
 | EEPROM-Rückgabe | `void` | `bool` | +100% |
+| saveSettings() Checks | 0/11 | 11/11 | +100% |
 | Validierung | 0 | 4 Typen | +4 |
 
 ---
@@ -165,15 +166,18 @@ else if (key == KEY_BLADE_SPEED1 || key == KEY_BLADE_SPEED1_ALT) {
 | Phase 4a | Enums für Skills | 21 Verbesserungen |
 | Phase 4b | Helper-Funktionen | 3 Verbesserungen |
 | Phase 3 | Fehlerbehandlung & Validierung | 4 Verbesserungen |
-| **Korrektur** | Vollständige saveSettings()-Prüfung | 4 zusätzliche Fixes |
-| **GESAMT** | | **49 Verbesserungen** |
+| **Korrektur 1** | Vollständige saveSettings()-Prüfung (Skills) | 4 zusätzliche Fixes |
+| **Korrektur 2** | Vollständige saveSettings()-Prüfung (loadSettings, API) | 2 zusätzliche Fixes |
+| **GESAMT** | | **51 Verbesserungen** |
 
 ### Commits
 
 | Commit | Beschreibung | Zeit |
 |--------|--------------|------|
 | `9a04075` | Haupt-Refactoring (45 Verbesserungen) | 01:00 |
-| `0d17fe5` | **Korrektur**: Fehlende saveSettings() Checks | 01:07 |
+| `0d17fe5` | **Korrektur 1**: Fehlende saveSettings() Checks (Skills) | 01:07 |
+| `0a6be21` | Dokumentations-Update | 01:10 |
+| `80b6dcd` | **Korrektur 2**: Letzte saveSettings() Checks (loadSettings, API) | 01:15 |
 
 ### Highlights
 
