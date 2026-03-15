@@ -46,10 +46,12 @@
 - [x] Alle 3 Aufrufe aktualisiert (Zeilen 1857, 2337, 2721)
 - [x] **AKTUALISIERT:** 2026-03-15 05:08 CET - WiFi Credentials auf NVS umgestellt
 
-#### Schritt 1.2.5: `eepromSaveTask` anpassen
-- [ ] Task auf Preferences umstellen
-- [ ] Debug-Logging anpassen
-- [ ] **AKTUALISIERT:** _
+#### Schritt 1.2.5: `eepromSaveTask` anpassen ✅ ERLEDIGT
+- [x] Task umbenannt: `eepromSaveTask` → `nvsSaveTask`
+- [x] Kommentar aktualisiert (NVS mit Wear-Leveling)
+- [x] Debug-Logging auf "NVS" angepasst
+- [x] Task-Erzeugung in setup() aktualisiert (Zeile 2139)
+- [x] **AKTUALISIERT:** 2026-03-15 05:11 CET - Task auf NVS umgestellt
 
 #### Schritt 1.2.6: Build testen
 - [ ] `pio run -e esp32s3` erfolgreich

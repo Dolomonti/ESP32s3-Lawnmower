@@ -547,7 +547,7 @@ void espNowTask(void *pvParameters);
 void mpuReadTask(void *parameter);
 void statusTask(void *pvParameters);
 void controlLogicTask(void *pvParameters); // Neue Zeile hinzugefügt
-void eepromSaveTask(void *pvParameters); // Task 5.5: EEPROM Speicher-Task
+void nvsSaveTask(void *pvParameters); // Phase 1.2: NVS Speicher-Task (Wear-Leveling)
 
 //Gyro Initialization
 
@@ -2136,7 +2136,7 @@ void setup() {
     xTaskCreatePinnedToCore(controlLogicTask, "ControlTask", 4096, NULL, 4, NULL, 1);
     
     // Task 5.5: EEPROM Speicher-Task (niedrige Priorität, Core 0)
-    xTaskCreatePinnedToCore(eepromSaveTask, "EepromTask", 2048, NULL, 1, NULL, 0);
+    xTaskCreatePinnedToCore(nvsSaveTask, "NvsTask", 2048, NULL, 1, NULL, 0); // Phase 1.2: NVS statt EEPROM
 
     // Letzter Befehl: Kanal 6 erzwingen, falls WiFi.begin() ihn verstellt hat
     vTaskDelay(200 / portTICK_PERIOD_MS);
@@ -3250,13 +3250,14 @@ void statusTask(void *pvParameters) {
 }
 
 // Task 5.5: EEPROM Speicher-Task (asynchrones Speichern außerhalb des Web-Threads)
-void eepromSaveTask(void *pvParameters) {
+void nvsSaveTask(void *pvParameters) {
+    // Phase 1.2: Asynchrones Speichern in NVS (mit Wear-Leveling)
     for (;;) {
         if (settingsNeedSave) {
             if (saveSettings()) {
-                DEBUG_LOG("Settings saved successfully (async)");
+                DEBUG_LOG("Settings saved successfully (async NVS)");
             } else {
-                DEBUG_LOG("ERROR: Failed to save settings (async)");
+                DEBUG_LOG("ERROR: Failed to save settings (async NVS)");
             }
             settingsNeedSave = false;
         }
