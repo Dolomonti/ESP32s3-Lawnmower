@@ -6,6 +6,7 @@
 
 #include "SensorManager.h"
 #include "Config.h"
+#include "Globals.h"
 
 int32_t readBladeBatteryVoltage() {
     // Spannung am Pin lesen (Millivolt)

@@ -39,20 +39,19 @@ Das Problem beim Verschieben von Receive() und Send() in die HoverboardComm.cpp 
 Schritt-für-Schritt (Der "Extern"-Weg):
 Um die Funktionen wirklich verschieben zu können, müssen die Module wissen, dass diese Variablen existieren.
 
-Eine Globals.h anlegen (oder Config.h erweitern):
-Erstelle eine Header-Datei, die alle globalen Variablen mit dem Schlüsselwort extern deklariert. Das sagt dem Compiler: "Diese Variable existiert irgendwo, vertrau mir."
-
-C++
-// Globals.h
-#pragma once
-#include <atomic>
-#include "Config.h" // Für Settings-Struct
-
-extern Settings currentSettings;
-extern std::atomic<bool> hoverboardIsBusy;
-extern std::atomic<int16_t> input_EspNowSteer;
-extern std::atomic<int16_t> input_EspNowSpeed;
-// ... weitere geteilte Variablen
+✅ Task 2.1 ABGESCHLOSSEN: Globals.h erstellt
+Zeitstempel: 2026-03-15 06:55 CET
+Was gemacht wurde:
+- Neue Datei src/Globals.h erstellt
+- Alle relevanten globalen Variablen als extern deklariert:
+  * Skill & State Variablen (skill8Active, monitorDirection, etc.)
+  * Steuerungs-Variablen (skillActive, currentSkill, skillSteer)
+  * Input Variablen (input_EspNowSpeed/Steer, input_JoySpeed/Steer)
+  * Safety Variablen (isInSafetyMode, skill8SafetyActive, etc.)
+  * Network Variablen (isWiFiConnected, apStartTime, etc.)
+  * Logging Variablen (webLogActive, webLogBuffer, etc.)
+- Forward Declarations für wichtige Funktionen hinzugefügt
+- Datei includet Config.h und HoverboardComm.h für Abhängigkeiten
 Dateien verschieben (HoverboardComm.cpp):
 Nimm den kompletten Code von Receive() und Send() (und die Deklaration von SerialFeedback etc.) und schneide ihn aus der main.cpp aus. Füge ihn in HoverboardComm.cpp ein.
 

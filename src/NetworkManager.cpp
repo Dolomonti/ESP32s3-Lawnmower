@@ -6,6 +6,7 @@
 
 #include "NetworkManager.h"
 #include "Config.h"
+#include "Globals.h"
 
 // Debug-Ausgaben (DEBUG_LOG ist in main.cpp definiert)
 #define NM_LOG(msg) Serial.println(msg)

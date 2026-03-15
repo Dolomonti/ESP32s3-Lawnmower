@@ -6,6 +6,7 @@
 
 #include "HoverboardComm.h"
 #include "Config.h"
+#include "Globals.h"
 
 // ====================================================================================
 // ===== GLOBALE VARIABLEN (Definitionen) ==============================================
