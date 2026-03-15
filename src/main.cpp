@@ -269,7 +269,7 @@ int16_t global_maxSpeedR = 0; // FIX: Deklaration hinzugefügt
 
 #include <ArduinoJson.h>
 
-#include <EEPROM.h>
+#include <Preferences.h>  // Phase 1.2: NVS mit Wear-Leveling statt EEPROM
 #include <ArduinoOTA.h>
 #include "esp_crc.h" // Dies für die CRC32-Berechnung hinzufügen
 
