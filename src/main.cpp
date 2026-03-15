@@ -830,7 +830,9 @@ void loadSettings() {
         currentSettings.apiKey[0] = '\0'; // Init API Key empty
 
         // Speichere die neuen Standardwerte
-        saveSettings();
+        if (!saveSettings()) {
+            DEBUG_LOG("ERROR: Failed to save default settings to EEPROM!");
+        }
     } else {
         DEBUG_LOG("Successfully loaded settings from EEPROM (CRC OK).");
     }
@@ -2392,8 +2394,11 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
                      String newKey = doc["apiKey"].as<String>();
                      if (newKey.length() < 64) {
                          strlcpy(currentSettings.apiKey, newKey.c_str(), sizeof(currentSettings.apiKey));
-                         saveSettings();
-                         client->text("LOG: API Key saved.");
+                         if (saveSettings()) {
+                             client->text("LOG: API Key saved.");
+                         } else {
+                             client->text("LOG: Error - Failed to save API Key!");
+                         }
                      } else {
                          client->text("LOG: Error - API Key too long.");
                      }
