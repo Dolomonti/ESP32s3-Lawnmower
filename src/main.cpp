@@ -226,12 +226,18 @@ volatile size_t webLogReadIndex = 0;     // Leseposition
 volatile bool webLogOverflow = false;    // Overflow-Flag
 unsigned long lastWebLogSend = 0;        // Timer für das 0.5s Intervall
 
+// Teil 1 (To-Do 7): Spinlock für Ringpuffer Thread-Sicherheit
+portMUX_TYPE logMutex = portMUX_INITIALIZER_UNLOCKED;
+
 // Hilfsfunktion: Fügt Text zum Ringpuffer hinzu (thread-sicher)
 void addToWebLogBuffer(const char* msg) {
     if (!msg || !webLogActive) return;
     
     size_t len = strlen(msg);
     if (len == 0) return;
+    
+    // Teil 1 (To-Do 7): Spinlock schützt Schreibzugriff
+    portENTER_CRITICAL(&logMutex);
     
     // Prüfen ob genug Platz oder Overflow
     size_t available;
@@ -252,11 +258,16 @@ void addToWebLogBuffer(const char* msg) {
         webLogBuffer[webLogWriteIndex] = msg[i];
         webLogWriteIndex = (webLogWriteIndex + 1) % WEB_LOG_BUFFER_SIZE;
     }
+    
+    portEXIT_CRITICAL(&logMutex);
 }
 
 // Hilfsfunktion: Holt Text aus Ringpuffer (fürs Senden)
 void getFromWebLogBuffer(char* dest, size_t maxLen) {
     if (!dest || maxLen == 0) return;
+    
+    // Teil 1 (To-Do 7): Spinlock schützt Lesezugriff
+    portENTER_CRITICAL(&logMutex);
     
     size_t count = 0;
     while (count < maxLen - 1 && webLogReadIndex != webLogWriteIndex) {
@@ -271,6 +282,8 @@ void getFromWebLogBuffer(char* dest, size_t maxLen) {
         strncat(dest, "\n--- BUFFER OVERFLOW ---\n", maxLen - strlen(dest) - 1);
         webLogOverflow = false;
     }
+    
+    portEXIT_CRITICAL(&logMutex);
 }
 
 // Hilfsfunktion: Prüft ob Daten im Puffer
@@ -385,9 +398,6 @@ extern uint16_t bufStartFrame;
 extern byte *p;
 extern byte incomingByte;
 extern byte incomingBytePrev;
-
-
-
 
 unsigned long lastHeartbeat = 0;
 
