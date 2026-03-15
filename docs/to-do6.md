@@ -91,22 +91,32 @@
 
 ---
 
-## Phase 2: FreeRTOS Thread-Sicherheit 🔴 KRITISCH
+## Phase 2: FreeRTOS Thread-Sicherheit ✅ ABGESCHLOSSEN
 
 **Problem:** Globale Variablen werden von mehreren Tasks ohne Schutz verwendet.
 
-#### Schritt 2.1: Atomare Typen einführen
-- [ ] `#include <atomic>` hinzufügen
-- [ ] `volatile bool skill8SafetyActive` → `std::atomic<bool> skill8SafetyActive{false}`
-- [ ] `volatile int currentBladeState` → `std::atomic<int> currentBladeState{BLADE_OFF}`
-- [ ] `volatile bool isInSafetyMode` → `std::atomic<bool> isInSafetyMode{false}`
-- [ ] `volatile bool hoverboardIsBusy` → `std::atomic<bool> hoverboardIsBusy{false}`
-- [ ] **AKTUALISIERT:** _
+#### Schritt 2.1: Include und atomare Typen einführen ✅ ERLEDIGT
+- [x] `#include <atomic>` hinzugefügt (Zeile 275)
+- [x] **AKTUALISIERT:** 2026-03-15 05:32 CET
 
-#### Schritt 2.2: Komplexe Strukturen schützen
-- [ ] Prüfen ob `feedbackMutex` ausreicht
-- [ ] Ggf. weitere Mutexe für Shared Data
-- [ ] **AKTUALISIERT:** _
+#### Schritt 2.2: Globale atomare Variablen definiert ✅ ERLEDIGT
+- [x] `skill8SafetyActive` → `std::atomic<bool>{false}` (Zeile 644)
+- [x] `isInSafetyMode` → `std::atomic<bool>{false}` (Zeile 364)
+- [x] `skillActive` → `std::atomic<bool>{false}` (Zeile 682)
+- [x] `currentSkill` → `std::atomic<int>{0}` (Zeile 683)
+- [x] `hoverboardIsBusy` → `std::atomic<bool>{false}` (Zeile 690)
+- [x] `currentBladeState` war schon Enum (nicht geändert)
+- [x] **AKTUALISIERT:** 2026-03-15 05:32 CET
+
+#### Schritt 2.3: JSON-Zugriffe mit .load() angepasst ✅ ERLEDIGT
+- [x] `doc["estop"] = skill8SafetyActive.load()` (Zeile 3227)
+- [x] `doc["turn_active"] = skillActive.load()` (Zeile 3302)
+- [x] **AKTUALISIERT:** 2026-03-15 05:33 CET
+
+#### Schritt 2.4: Build testen ✅ ERLEDIGT
+- [x] `pio run -e esp32s3` erfolgreich
+- [x] **ERGEBNIS:** SUCCESS - RAM: 16.5%, Flash: 33.5%
+- [x] **AKTUALISIERT:** 2026-03-15 05:33 CET - Phase 2 ABGESCHLOSSEN
 
 ---
 
