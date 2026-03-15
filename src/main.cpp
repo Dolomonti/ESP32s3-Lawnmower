@@ -1225,51 +1225,7 @@ void triggerSkill(uint8_t skill, int16_t param1 = 0, int16_t param2 = 0, int16_t
     }
 }
 
-// --- Die Send-Funktion passt sich dem cmdCode an ---
-void Send(int16_t uSteer, int16_t uSpeed) {
-    static unsigned long lastHeartbeatSend = 0;
-    if (millis() - lastHeartbeatSend < 50) return; 
-    lastHeartbeatSend = millis();
-
-    if (isHighVoltageShutdown || skill8SafetyActive) {
-        uSteer = 0; uSpeed = 0;
-    }
-
-    // *** TASK 1.1: Mutex-Schutz für UART-Kommunikation ***
-    if (xSemaphoreTake(bufferMutex, (TickType_t)10) == pdTRUE) {
-        Command.start     = 0xABCD;
-        Command.cmdCode   = (int16_t)global_cmdCode; 
-        
-        // *** REFACTORED: Send() verwendet stumpf die übergebenen Parameter ***
-        // Die Entscheidung was übergeben wird, liegt beim Aufrufer (controlLogicTask)
-        Command.steer = uSteer;
-        Command.speed = uSpeed;
-
-        // Zuweisung aller Parameter für die binäre Übertragung
-        Command.maxSpeedL = global_maxSpeedL;
-        Command.maxSpeedR = global_maxSpeedR; // Sicherstellen, dass R auch gesendet wird
-        Command.accPct    = (int16_t)global_accel; 
-        Command.brkPct    = (int16_t)global_brake;
-
-        // Checksumme muss exakt alle Felder der SerialCommand Struktur im STM32 spiegeln
-        Command.checksum = Command.start ^ 
-                           Command.cmdCode ^ 
-                           Command.steer ^ 
-                           Command.speed ^ 
-                           Command.maxSpeedL ^ 
-                           Command.maxSpeedR ^ 
-                           Command.accPct ^ 
-                           Command.brkPct;
-
-        // Binäres Paket an den STM32 feuern (Phase 4.3: HoverSerial ist jetzt Pointer)
-        HoverSerial->write((uint8_t *)&Command, sizeof(SerialCommand));
-        
-        xSemaphoreGive(bufferMutex);
-    }
-}
-
-
-
+// Send() ist jetzt in HoverboardComm.cpp (To-Do 7: Vollständige Modularisierung)
 void sendESPNow(uint8_t *mac, ESPNowCommand *command) {
     esp_err_t result;
 
@@ -2606,72 +2562,7 @@ void handleResetWifi(AsyncWebServerRequest *request) {
 // ====================================================================================
 // ===== AFTER: Optimierte Receive Funktion mit Flag-Check & Erweitertem Debug ========
 // ====================================================================================
-void Receive() {
-  while (HoverSerial->available()) {
-    incomingByte = HoverSerial->read();
-    bufStartFrame = ((uint16_t)(incomingByte) << 8) | incomingBytePrev;
-
-    if (bufStartFrame == START_FRAME) { // Benutze das definierte START_FRAME (0xABCD)
-      p = (byte *)&NewFeedback;
-      *p++ = incomingBytePrev;
-      *p++ = incomingByte;
-      idx = 2;
-    } 
-    else if (idx >= 2 && idx < sizeof(SerialFeedback)) {
-      *p++ = incomingByte;
-      idx++;
-    }
-
-    if (idx == sizeof(SerialFeedback)) {
-      // Prüfsumme berechnen (XOR-Kette synchron zur Hoverboard-Firmware)
-      uint16_t calcChecksum = (uint16_t)(NewFeedback.start ^ 
-                                         NewFeedback.cmd1 ^ 
-                                         NewFeedback.cmd2 ^ 
-                                         NewFeedback.speedR_meas ^ 
-                                         NewFeedback.speedL_meas ^ 
-                                         NewFeedback.batVoltage ^ 
-                                         NewFeedback.boardTemp ^ 
-                                         NewFeedback.cmdLed);
-
-      if (calcChecksum == NewFeedback.checksum) {
-        if (xSemaphoreTake(feedbackMutex, (TickType_t)5) == pdTRUE) {
-            memcpy(&Feedback, &NewFeedback, sizeof(SerialFeedback));
-            xSemaphoreGive(feedbackMutex);
-        }
-
-        // 1. BUSY FLAG EXTRAHIEREN (Bit 8: Meldet der STM32 'dist_mode_active'?)
-        hoverboardIsBusy = (Feedback.cmdLed & 0x0100) != 0;
-
-        // 2. DATEN-INTERPRETATION: 
-        // Wenn Busy (Mission): cmd1/cmd2 sind gefahrene Ticks
-        // Wenn Idle: cmd1/cmd2 sind die aktuell gemessenen Geschwindigkeiten/PWM
-        if (hoverboardIsBusy) {
-          feedbackDistL = Feedback.cmd1;
-          feedbackDistR = Feedback.cmd2;
-        } else {
-          // Nur nullen, wenn keine Mission aktiv ist
-          if (currentSkill != 20) {
-            feedbackDistL = 0;
-            feedbackDistR = 0;
-          }
-        }
-      }
-      idx = 0; // Reset für nächstes Paket
-    }
-    incomingBytePrev = incomingByte; 
-  }
-
-  // Debug Ausgabe: Erweitert um den Status der Busy-Flag und die Ticks
-  if (PRINT_FEEDBACK_BLOCK) {
-    debugPrintf("FB: V=%d | L_Val=%d | R_Val=%d | T=%d | BUSY=%s\n", 
-                Feedback.batVoltage, 
-                Feedback.cmd1, 
-                Feedback.cmd2, 
-                Feedback.boardTemp,
-                hoverboardIsBusy ? "YES" : "NO");
-  }
-}
-
+// Receive() ist jetzt in HoverboardComm.cpp (To-Do 7: Vollständige Modularisierung)
 // ########################## LOOP ##########################
 
 void loop(void)
