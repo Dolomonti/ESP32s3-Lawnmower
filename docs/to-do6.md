@@ -163,11 +163,19 @@
 - [x] Build: SUCCESS
 - [x] **AKTUALISIERT:** 2026-03-15 05:55 CET
 
-#### Schritt 4.3: HoverboardComm.h/cpp erstellen
-- [ ] `src/HoverboardComm.h` erstellen
-- [ ] `src/HoverboardComm.cpp` erstellen
-- [ ] UART-Kommunikation extrahieren
-- [ ] **AKTUALISIERT:** _
+#### Schritt 4.3: HoverboardComm.h/cpp erstellen ✅ ERLEDIGT
+- [x] `src/HoverboardComm.h` erstellt (Deklarationen)
+- [x] `src/HoverboardComm.cpp` erstellt (Definitionen)
+- [x] `SerialCommand` und `SerialFeedback` Structs verschoben
+- [x] Alle globalen Variablen (Command, Feedback, etc.) kapseln
+- [x] Mutexe (bufferMutex, feedbackMutex) kapseln
+- [x] In main.cpp eingebunden:
+  - `#include "HoverboardComm.h"`
+  - Extern-Deklarationen für shared Variablen
+  - HoverSerial als Pointer umgestellt
+  - initHoverboardComm() Aufruf
+- [x] Build: SUCCESS
+- [x] **AKTUALISIERT:** 2026-03-15 06:15 CET
 
 #### Schritt 4.4: SensorManager.h/cpp erstellen
 - [ ] `src/SensorManager.h` erstellen
