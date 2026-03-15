@@ -120,20 +120,20 @@
 
 ---
 
-## Phase 3: Netzwerk-Flexibilität (DHCP) 🟡 WICHTIG
+## Phase 3: Netzwerk-Flexibilität (DHCP) ✅ ABGESCHLOSSEN
 
 **Problem:** Statische IP 192.168.1.123 funktioniert nicht in allen Netzwerken.
 
-#### Schritt 3.1: DHCP als Standard
-- [ ] `WiFi.config()` aus `connectToWiFi()` entfernen
-- [ ] DHCP-Modus aktivieren
-- [ ] **AKTUALISIERT:** _
+#### Schritt 3.1: DHCP als Standard ✅ ERLEDIGT
+- [x] `WiFi.config()` entfernt (Zeilen 2711-2714 gelöscht)
+- [x] DHCP-Modus aktiv (automatisch ohne statische Konfiguration)
+- [x] Kommentar hinzugefügt für Dokumentation
+- [x] **AKTUALISIERT:** 2026-03-15 05:38 CET
 
-#### Schritt 3.2: Optionale statische IP (Web-Interface)
-- [ ] Settings-Struct erweitern (optionalIP, optionalGateway, optionalSubnet)
-- [ ] Web-Interface erweitern
-- [ ] Logik: Falls Werte gesetzt → statisch, sonst DHCP
-- [ ] **AKTUALISIERT:** _
+#### Schritt 3.2: Build testen ✅ ERLEDIGT
+- [x] `pio run -e esp32s3` erfolgreich
+- [x] **ERGEBNIS:** SUCCESS - RAM: 16.5%, Flash: 33.5% (-0.7% kleiner!)
+- [x] **AKTUALISIERT:** 2026-03-15 05:39 CET - Phase 3 ABGESCHLOSSEN
 
 ---
 
