@@ -106,9 +106,10 @@ if (param3 > 0) {
 
 - [x] Build erfolgreich (`pio run` - SUCCESS)
 - [x] Fehler-Logging implementiert
+- [x] ALLE `saveSettings()` Aufrufe mit Fehlerprüfung (dank User-Feedback korrigiert)
 - [ ] Hardware-Test (empfohlen vor Einsatz!)
 
-**Build-Datum:** 2026-03-15 01:00 CET
+**Build-Datum:** 2026-03-15 01:05 CET (korrigiert um 01:07)
 **Speicher:** RAM 15.9%, Flash 33.4% (+964 Bytes für Fehlerbehandlung)
 
 ---
@@ -120,16 +121,37 @@ if (param3 > 0) {
 | # | Problem | Lösung | Status |
 |---|---------|--------|--------|
 | 1 | EEPROM-Fehler wird ignoriert | `saveSettings()` gibt jetzt `bool` zurück | ✅ |
+| 1b | **KORREKTUR** | Alle 8 Aufrufe prüfen den Rückgabewert | ✅✅ |
 | 2 | PWM-Werte unvalidiert | Bereichsprüfung 1000-2000 in Skill 6 | ✅ |
 | 3 | Skill-Nummern unvalidiert | Bounds-Checking in `triggerSkill()` | ✅ |
 | 4 | Parameter unvalidiert | Min/Max-Prüfung für PD Gains, Battery Factors | ✅ |
 
-### Code-Änderungen
+### Vollständige Liste der saveSettings()-Aufrufe mit Fehlerprüfung
 
-1. **`saveSettings()` → `bool`**: Rückgabewert zeigt Erfolg/Fehler an
-2. **Skill 6 PWM-Validierung**: Web-PWM wird auf gültigen Bereich geprüft
-3. **Skill-Code Validierung**: Ungültige Skill-Codes werden abgewiesen
-4. **Parameter-Clamping**: PD Gains max 10.0, Battery Factors in realistischen Bereichen
+| Skill | Funktion | Status |
+|-------|----------|--------|
+| 7 | SET_LIMITS | ✅ Mit Fehlerprüfung |
+| 8 | ESTOP (Config) | ✅ Mit Fehlerprüfung |
+| 10 | SET_BLADE_SPEEDS | ✅ **Korrigiert** |
+| 12 | DRIVE_LEVELS | ✅ **Korrigiert** |
+| 13 | BLADE_LEVELS | ✅ **Korrigiert** |
+| 14 | CAPSIZE_PARAMS | ✅ **Korrigiert** |
+| 15 | PD_GAINS | ✅ Mit Fehlerprüfung |
+| 16 | BLADE_BATTERY_FACTOR | ✅ Mit Fehlerprüfung |
+| 17 | DRIVE_BATTERY_FACTOR | ✅ Mit Fehlerprüfung |
+
+**ALLE AUFRUFE JETZT KORREKT!**
+
+---
+
+## 📝 KORREKTUR-HISTORY
+
+**Ursprünglicher Commit (9a04075):** Partielle Implementierung
+- Skill 7, 8, 15, 16, 17: Fehlerprüfung vorhanden ✅
+- Skill 10, 12, 13, 14: Fehlerprüfung fehlte ❌
+
+**Korrektur-Commit (0d17fe5):** Vollständige Implementierung
+- Skill 10, 12, 13, 14: Fehlerprüfung hinzugefügt ✅
 
 ---
 

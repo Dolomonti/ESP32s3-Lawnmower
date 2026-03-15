@@ -153,7 +153,7 @@ else if (key == KEY_BLADE_SPEED1 || key == KEY_BLADE_SPEED1_ALT) {
 
 ---
 
-## 🎉 ALLE PHASEN ABGESCHLOSSEN!
+## 🎉 ALLE PHASEN ABGESCHLOSSEN! (INKL. KORREKTUREN)
 
 ### ✅ Abgeschlossene Arbeiten
 
@@ -165,7 +165,15 @@ else if (key == KEY_BLADE_SPEED1 || key == KEY_BLADE_SPEED1_ALT) {
 | Phase 4a | Enums für Skills | 21 Verbesserungen |
 | Phase 4b | Helper-Funktionen | 3 Verbesserungen |
 | Phase 3 | Fehlerbehandlung & Validierung | 4 Verbesserungen |
-| **GESAMT** | | **45 Verbesserungen** |
+| **Korrektur** | Vollständige saveSettings()-Prüfung | 4 zusätzliche Fixes |
+| **GESAMT** | | **49 Verbesserungen** |
+
+### Commits
+
+| Commit | Beschreibung | Zeit |
+|--------|--------------|------|
+| `9a04075` | Haupt-Refactoring (45 Verbesserungen) | 01:00 |
+| `0d17fe5` | **Korrektur**: Fehlende saveSettings() Checks | 01:07 |
 
 ### Highlights
 
